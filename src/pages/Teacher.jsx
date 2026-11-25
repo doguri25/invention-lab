@@ -7,6 +7,7 @@ import { sessionProgress } from '../lib/progress'
 import { go } from '../lib/router'
 import { RecordTable, Stairs, Think, Callout } from '../components/ui'
 import { Create, Sketch } from '../components/extra'
+import { SectionNav } from '../components/SectionNav'
 import { LabFrame } from '../labs/LabFrame'
 import { labHelp } from '../labs/help'
 import { rich } from '../lib/rich'
@@ -405,7 +406,7 @@ function AnswerKey({ n, work }) {
   )
 }
 
-function Plan({ n }) {
+function Plan({ n, sec }) {
   const T = TEACH[n]
   const both = n >= 3 && n <= 5
   const [work, setWork] = useState('all')
@@ -415,7 +416,6 @@ function Plan({ n }) {
   const sciences = (T.science || []).filter((c) => work === 'all' || !c.w || c.w === work)
   const notes = (T.notes || []).filter((c) => work === 'all' || !c.w || c.w === work)
   const toc = [['p-goal', '목표'], ['p-prep', '준비'], ['p-link', '앞뒤 연결'], ['p-flow', '40분 흐름'], ['p-3d', '3D 실험실'], ['p-talk', '이렇게 말해요'], ['p-ask', '발문'], ['p-sci', '과학 배경'], ['p-trouble', '안 될 때'], ['p-key', '정답'], ['p-assess', '평가'], ['p-diff', '수준별 지도']]
-  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
     <div className="stack plan" style={{ gap: 16 }}>
       <div className="sess-head">
@@ -427,18 +427,26 @@ function Plan({ n }) {
         <nav className="dots" aria-label="차시 고르기">{[1, 2, 3, 4, 5, 6].map((x) => <a key={x} href={`#/teacher/plan/${x}`} className={x === n ? 'on' : ''} aria-current={x === n ? 'page' : undefined}>{x}</a>)}</nav>
       </div>
       <div className="plan-bar no-print">
-        {both ? (
-          <div className="tabs" role="group" aria-label="작품 고르기">
-            <button aria-pressed={work === 'all'} onClick={() => setWork('all')}>두 작품 모두</button>
-            <button aria-pressed={work === 'rain'} onClick={() => setWork('rain')}>빗물 덮개</button>
-            <button aria-pressed={work === 'tape'} onClick={() => setWork('tape')}>테이프 감개</button>
-          </div>
-        ) : <span className="chip green">두 작품 함께 하는 차시</span>}
+        <span className="chip green">{both ? '작품별로 따로 하는 차시' : '두 작품 함께 하는 차시'}</span>
         <span className="grow" />
         <a className="btn small" href={`#/teacher/show/${work === 'tape' ? 'tape' : 'rain'}/${n}`}>수업 화면 열기</a>
         <button className="btn ghost small" onClick={() => window.print()}>인쇄</button>
       </div>
-      <nav className="jump no-print" aria-label="지도안 바로 가기">{toc.map(([id, l]) => <button key={id} type="button" onClick={() => jump(id)}>{l}</button>)}</nav>
+      <SectionNav items={toc} label="지도안 구역" base={`/teacher/plan/${n}`} start={sec} dep={n + work}>
+        <label className="snav-pick">
+          <span className="sr">차시 고르기</span>
+          <select value={n} onChange={(e) => go('/teacher/plan/' + e.target.value)}>
+            {[1, 2, 3, 4, 5, 6].map((x) => <option key={x} value={x}>{x}차시 {TEACH[x].title}</option>)}
+          </select>
+        </label>
+        {both && (
+          <div className="tabs sm" role="group" aria-label="작품 고르기">
+            <button aria-pressed={work === 'all'} onClick={() => setWork('all')}>두 작품</button>
+            <button aria-pressed={work === 'rain'} onClick={() => setWork('rain')}>빗물<span className="wide-only"> 덮개</span></button>
+            <button aria-pressed={work === 'tape'} onClick={() => setWork('tape')}>테이프<span className="wide-only"> 감개</span></button>
+          </div>
+        )}
+      </SectionNav>
 
       <section className="panel">
         <SecT id="p-goal" title="지도 의도와 목표" />
@@ -576,17 +584,16 @@ function Plan({ n }) {
   )
 }
 
-function Guide() {
+function Guide({ sec }) {
   const toc = [['g-over', '대회 한눈에'], ['g-app', '앱 쓰는 법'], ['g-works', '두 작품 이해'], ['g-creative', '창의 활동'], ['g-review', '복습 모드'], ['g-resume', '끊겼을 때'], ['g-expert', '전문가 지도 날'], ['g-mb', '마이크로비트'], ['g-caution', '주의할 점'], ['g-mat', '준비물 전체'], ['g-words', '어려운 말 풀이']]
-  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const G = GUIDE
   return (
     <div className="guide-wrap">
-      <nav className="guide-toc no-print" aria-label="지도 길잡이 목차">
-        <b>지도 길잡이</b>
-        {toc.map(([id, l]) => <button key={id} type="button" onClick={() => jump(id)}>{l}</button>)}
-        <button type="button" className="btn ghost small" onClick={() => window.print()} style={{ marginTop: 8 }}>인쇄</button>
-      </nav>
+      <div className="sess-head">
+        <div className="sess-title"><span className="chip green">선생님용</span><h1>지도 길잡이</h1></div>
+        <button type="button" className="btn ghost small no-print" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>인쇄</button>
+      </div>
+      <SectionNav items={toc} label="지도 길잡이 구역" base="/teacher/guide" start={sec} dep="g" />
       <div className="stack" style={{ gap: 16, minWidth: 0 }}>
         <section className="panel">
           <SecT id="g-over" title="대회 한눈에 보기" />
@@ -841,9 +848,9 @@ export default function Teacher({ route }) {
   if (tab === 'show') return <Show work={route[1]} n={+route[2] || 1} />
   let page
   if (tab === 's') page = <Detail pin={pin} s={(students || []).find((x) => x.id === route[1])} n={+route[2] || 1} onDone={load} />
-  else if (tab === 'plan') page = <Plan n={Math.min(6, Math.max(1, +route[1] || 1))} />
+  else if (tab === 'plan') page = <Plan key={route[1] || 1} n={Math.min(6, Math.max(1, +route[1] || 1))} sec={route[2]} />
   else if (tab === 'settings') page = <Settings pin={pin} onPin={setPin} />
-  else if (tab === 'guide') page = <Guide />
+  else if (tab === 'guide') page = <Guide sec={route[1]} />
   else page = <Dashboard students={students} />
   return (
     <>
