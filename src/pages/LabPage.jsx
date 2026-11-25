@@ -22,7 +22,7 @@ export default function LabPage() {
         <section className="panel">
           <div className="sec-t"><h2>부품</h2></div>
           <ol style={{ paddingLeft: 22, margin: 0 }}>
-            {PARTS[user.work].map((p) => <li key={p.id} style={{ marginBottom: 6 }}><b>{p.name}</b><br /><span className="small muted">{p.desc}</span></li>)}
+            {PARTS[user.work].map((p) => <li key={p.id} style={{ marginBottom: 6 }}><b style={{ display: 'block' }}>{p.name}</b><span className="small muted">{p.desc}</span></li>)}
           </ol>
         </section>
         {user.work === 'rain' && (

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { api } from '../lib/api'
-import { SESSIONS, WORKS, TEACH } from '../data/content'
+import { SESSIONS, WORKS, GLOSSARY } from '../data/content'
+import { TEACH, GUIDE, pick, tagOf } from '../data/guide'
 import { sessionProgress } from '../lib/progress'
 import { go } from '../lib/router'
-import { RecordTable, Stairs, Think } from '../components/ui'
+import { RecordTable, Stairs, Think, Callout } from '../components/ui'
 import { LabSwitch } from '../labs'
 
 const TK = 'invlab.v1.tpin'
@@ -56,9 +57,9 @@ function Login({ onOk }) {
 }
 
 function Bar({ tab, onLock, onRefresh, busy }) {
-  const L = [['', '학생 현황'], ['plan/1', '차시 지도안'], ['show/rain/1', '수업 화면'], ['settings', '설정']]
+  const L = [['', '학생 현황'], ['plan/1', '차시 지도안'], ['guide', '지도 길잡이'], ['show/rain/1', '수업 화면'], ['settings', '설정']]
   return (
-    <header className="topbar no-print">
+    <header className="topbar t-bar no-print">
       <a className="brand" href="#/teacher"><img src="/favicon.svg" alt="" /><b>선생님 화면</b></a>
       <nav className="tabs" aria-label="선생님 메뉴" style={{ boxShadow: 'none', background: '#e8eaed' }}>
         {L.map(([h, l]) => <button key={h} aria-pressed={tab === h.split('/')[0]} onClick={() => go('/teacher/' + h)}>{l}</button>)}
@@ -123,7 +124,7 @@ function Dashboard({ students }) {
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <div className="row" style={{ gap: 10 }}>
                     <img src={`/icons/mascot-${s.work}-smile.svg`} alt="" width="44" />
-                    <div><b className="display" style={{ fontSize: '1.35em' }}>{s.name}</b><br /><span className={'chip ' + s.work}>{WORKS[s.work].short}</span></div>
+                    <div className="stack" style={{ gap: 2, alignItems: 'flex-start', minWidth: 0 }}><b className="display" style={{ fontSize: '1.35em' }}>{s.name}</b><span className={'chip ' + s.work}>{WORKS[s.work].short}</span></div>
                   </div>
                   <span className="small muted">{ago(s.last_seen)}</span>
                 </div>
@@ -279,8 +280,16 @@ function Detail({ pin, s, n, onDone }) {
           <section className="panel">
             <div className="sec-t"><h2>이 차시에 물어볼 것</h2></div>
             <ul style={{ paddingLeft: 20, margin: 0 }} className="stack">
-              {(TEACH[sess.n]?.ask || []).filter((x) => !x[2] || x[2] === s.work).map(([q, a]) => <li key={q}><b>{q}</b><br /><span className="small muted">{a}</span></li>)}
+              {pick(TEACH[sess.n]?.ask, s.work).map(([q, a]) => <li key={q}><b>{q}</b><span className="small muted ans-line">{a}</span></li>)}
             </ul>
+          </section>
+          <section className="panel">
+            <div className="sec-t"><h2>평가 기준</h2><a className="note" href={`#/teacher/plan/${sess.n}`}>지도안 보기</a></div>
+            <div className="rubric-mini">
+              {pick(TEACH[sess.n]?.assess, s.work).map((r) => (
+                <div key={r[0]}><b>{r[0]}</b><p><span className="lv lv1">잘함</span>{r[1]}</p><p><span className="lv lv2">보통</span>{r[2]}</p><p><span className="lv lv3">노력</span>{r[3]}</p></div>
+              ))}
+            </div>
           </section>
           <section className="panel">
             <div className="sec-t"><h2>탐구일지</h2><span className="note">{(s.records.journal?.data?.list || []).length}쪽</span></div>
@@ -295,59 +304,313 @@ function Detail({ pin, s, n, onDone }) {
   )
 }
 
-function Plan({ n }) {
-  const T = TEACH[n]
+const WN = { rain: '빗물', tape: '테이프' }
+function Tag({ x }) {
+  const w = tagOf(x)
+  return w ? <span className={'chip ' + w + ' tag'}>{WN[w]}</span> : null
+}
+const txt = (x) => (Array.isArray(x) ? x[0] : x)
+
+function SecT({ id, title, note }) {
+  return <div className="sec-t" id={id}><h2>{title}</h2>{note && <span className="note">{note}</span>}</div>
+}
+
+function Science({ items }) {
   return (
-    <div className="stack" style={{ gap: 16 }}>
-      <div className="sess-head">
-        <span className="nbadge" style={{ background: 'var(--green)' }}>{n}</span>
-        <div>
-          <span className="chip green">{n}차시 지도안</span>
-          <h1 style={{ marginTop: 4 }}>{SESSIONS.rain[n - 1].title}{SESSIONS.rain[n - 1].title !== SESSIONS.tape[n - 1].title && ` · ${SESSIONS.tape[n - 1].title}`}</h1>
-        </div>
-        <nav className="dots" aria-label="차시 고르기">{[1, 2, 3, 4, 5, 6].map((x) => <a key={x} href={`#/teacher/plan/${x}`} className={x === n ? 'on' : ''}>{x}</a>)}</nav>
-      </div>
-      <div className="row">
-        <a className="btn" href={`#/teacher/show/rain/${n}`}>빗물 덮개 수업 화면</a>
-        <a className="btn work-tape" style={{ background: 'var(--tape)' }} href={`#/teacher/show/tape/${n}`}>테이프 감개 수업 화면</a>
-      </div>
-      <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
-        <section className="panel"><div className="sec-t"><h2>목표</h2></div><ul style={{ paddingLeft: 20, margin: 0 }}>{T.goal.map((g) => <li key={g}>{g}</li>)}</ul></section>
-        <section className="panel"><div className="sec-t"><h2>미리 준비</h2></div><ul style={{ paddingLeft: 20, margin: 0 }}>{T.prep.map((g) => <li key={g}>{g}</li>)}</ul></section>
-      </div>
-      <section className="panel">
-        <div className="sec-t"><h2>40분 흐름</h2></div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="plan-table">
-            <thead><tr><th style={{ width: 90 }}>시간</th><th>선생님</th><th>학생</th></tr></thead>
-            <tbody>{T.flow.map(([t, a, b]) => <tr key={t}><td><b>{t}</b></td><td>{a}</td><td>{b}</td></tr>)}</tbody>
-          </table>
-        </div>
-      </section>
-      <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
-        <section className="panel"><div className="sec-t"><h2>물어볼 것과 기대하는 답</h2></div>
-          <div className="stack">{T.ask.map(([q, a, w]) => <div key={q}>{w && <span className={'chip ' + w} style={{ marginRight: 6 }}>{WORKS[w].short}</span>}<b>{q}</b><p className="small" style={{ color: '#0d652d' }}>{a}</p></div>)}</div>
-        </section>
-        <section className="panel"><div className="sec-t"><h2>실험이 안 될 때</h2></div>
-          <div className="stack">{T.trouble.map(([w, fix]) => <div key={w}><b>{w}</b><p className="small">{fix}</p></div>)}</div>
-        </section>
-      </div>
-      {['rain', 'tape'].map((w) => {
+    <div className="sci-list">
+      {items.map((c, i) => (
+        <article className="sci" key={c.t + i}>
+          {c.img && <div className="sci-img"><img src={c.img} alt="" loading="lazy" /></div>}
+          <div>
+            <h3>{c.w && <span className={'chip ' + c.w + ' tag'}>{WN[c.w]}</span>}{c.t}</h3>
+            <p>{c.d}</p>
+            {c.list && <>{c.listTitle && <b className="sci-lt">{c.listTitle}</b>}<ul>{c.list.map((l) => <li key={l}>{l}</li>)}</ul></>}
+            {c.table && (
+              <div className="tbl-wrap"><table className="plan-table">
+                <thead><tr>{c.table.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>{c.table.rows.map((r) => <tr key={r[0]}>{r.map((v, j) => <td key={j}>{j === 0 ? <b>{v}</b> : v}</td>)}</tr>)}</tbody>
+              </table></div>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+function AnswerKey({ n, work }) {
+  const works = work === 'all' ? ['rain', 'tape'] : [work]
+  return (
+    <div className="stack" style={{ gap: 18 }}>
+      {works.map((w) => {
         const s = SESSIONS[w][n - 1]
-        const picks = (s.think || []).filter((t) => t.type === 'pick')
-        if (!s.calc && !picks.length && !s.quiz.length) return null
+        const thinks = (s.think || []).filter((t) => t.type !== 'table')
         return (
-          <details key={w} className={'panel work-' + w}>
-            <summary style={{ cursor: 'pointer', fontWeight: 800 }}>{WORKS[w].name} 정답 한눈에</summary>
-            <div className="stack" style={{ marginTop: 14 }}>
-              {s.calc && <Stairs items={s.calc} data={{}} readOnly showAnswers />}
-              {picks.map((t) => <p key={t.id}><b>{t.q}</b> → {t.answer}</p>)}
-              {s.quiz.map((q, i) => <p key={i}><b>퀴즈 {i + 1}.</b> {q.q} → {q.options[q.answer]}</p>)}
-            </div>
-          </details>
+          <div key={w} className={'work-' + w + ' key-block'}>
+            {works.length > 1 && <b className="key-t"><span className={'chip ' + w}>{WORKS[w].name}</span></b>}
+            {s.lab?.predict && <p><b>3D 예상하기</b> {s.lab.predict.q} → <b className="ok-t">{s.lab.predict.answer}</b></p>}
+            {s.calc && <><b>계산 계단</b><Stairs items={s.calc} data={{}} readOnly showAnswers /></>}
+            {thinks.length > 0 && (
+              <div className="tbl-wrap"><table className="plan-table">
+                <thead><tr><th>생각해요</th><th>예시 답</th></tr></thead>
+                <tbody>{thinks.map((t) => <tr key={t.id}><td>{t.q}</td><td>{sampleOf(t) || '학생 경험에 따라 달라요.'}</td></tr>)}</tbody>
+              </table></div>
+            )}
+            <div className="tbl-wrap"><table className="plan-table">
+              <thead><tr><th>퀴즈</th><th>정답</th></tr></thead>
+              <tbody>{s.quiz.map((q, i) => <tr key={i}><td>{i + 1}. {q.q}</td><td><b className="ok-t" style={{ display: 'block' }}>{q.options[q.answer]}</b><span className="small muted">{q.why}</span></td></tr>)}</tbody>
+            </table></div>
+          </div>
         )
       })}
     </div>
+  )
+}
+
+function Plan({ n }) {
+  const T = TEACH[n]
+  const both = n >= 3 && n <= 5
+  const [work, setWork] = useState('all')
+  useEffect(() => { setWork('all') }, [n])
+  const f = (arr) => pick(arr, work)
+  const sciences = (T.science || []).filter((c) => work === 'all' || !c.w || c.w === work)
+  const notes = (T.notes || []).filter((c) => work === 'all' || !c.w || c.w === work)
+  const toc = [['p-goal', '목표'], ['p-prep', '준비'], ['p-flow', '40분 흐름'], ['p-talk', '이렇게 말해요'], ['p-ask', '발문'], ['p-sci', '과학 배경'], ['p-trouble', '안 될 때'], ['p-key', '정답'], ['p-assess', '평가'], ['p-diff', '수준별 지도']]
+  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  return (
+    <div className="stack plan" style={{ gap: 16 }}>
+      <div className="sess-head">
+        <span className="nbadge" style={{ background: 'var(--green)' }}>{n}</span>
+        <div className="sess-title">
+          <span className="chip green">{n}차시 지도안 · {T.when} · 40분</span>
+          <h1>{T.title}</h1>
+        </div>
+        <nav className="dots" aria-label="차시 고르기">{[1, 2, 3, 4, 5, 6].map((x) => <a key={x} href={`#/teacher/plan/${x}`} className={x === n ? 'on' : ''} aria-current={x === n ? 'page' : undefined}>{x}</a>)}</nav>
+      </div>
+      <div className="plan-bar no-print">
+        {both ? (
+          <div className="tabs" role="group" aria-label="작품 고르기">
+            <button aria-pressed={work === 'all'} onClick={() => setWork('all')}>두 작품 모두</button>
+            <button aria-pressed={work === 'rain'} onClick={() => setWork('rain')}>빗물 덮개</button>
+            <button aria-pressed={work === 'tape'} onClick={() => setWork('tape')}>테이프 감개</button>
+          </div>
+        ) : <span className="chip green">두 작품 함께 하는 차시</span>}
+        <span className="grow" />
+        <a className="btn small" href={`#/teacher/show/${work === 'tape' ? 'tape' : 'rain'}/${n}`}>수업 화면 열기</a>
+        <button className="btn ghost small" onClick={() => window.print()}>인쇄</button>
+      </div>
+      <nav className="jump no-print" aria-label="지도안 바로 가기">{toc.map(([id, l]) => <button key={id} type="button" onClick={() => jump(id)}>{l}</button>)}</nav>
+
+      <section className="panel">
+        <SecT id="p-goal" title="지도 의도와 목표" />
+        <p className="lead">{T.why}</p>
+        <ul className="check-list">{f(T.goal).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+      </section>
+
+      <div className="grid-2">
+        <section className="panel">
+          <SecT id="p-prep" title="전날 준비" />
+          <ul>{f(T.prep).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+          <Callout tone="safe" title="안전" items={f(T.safety).map(txt)} />
+        </section>
+        <section className="panel">
+          <SecT title="준비물" note="학생 2명 기준" />
+          <div className="tbl-wrap"><table className="plan-table">
+            <thead><tr><th>품목</th><th>수량</th><th>비고</th></tr></thead>
+            <tbody>{f(T.materials).map((r) => <tr key={r[0] + r[3]}><td><Tag x={r} />{r[0]}</td><td className="nw">{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+          </table></div>
+        </section>
+      </div>
+
+      <section className="panel">
+        <SecT id="p-flow" title="40분 흐름" note={both ? '35분은 작품별로, 마지막 5분은 함께' : ''} />
+        <div className="tbl-wrap"><table className="plan-table flow">
+          <thead><tr><th style={{ width: 92 }}>시간</th><th>선생님</th><th>학생</th></tr></thead>
+          <tbody>{f(T.flow).map((r, i) => <tr key={i}><td className="nw"><b style={{ display: 'block' }}>{r[0]}</b><Tag x={r} /></td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+        </table></div>
+      </section>
+
+      <section className="panel">
+        <SecT id="p-talk" title="학생에게는 이렇게" note="선생님이 그대로 읽어도 되는 말" />
+        <div className="stack">{f(T.talk).map((t) => <blockquote key={txt(t)} className="talk-q"><Tag x={t} />{txt(t)}</blockquote>)}</div>
+      </section>
+
+      <section className="panel">
+        <SecT id="p-ask" title="발문과 기대하는 답" />
+        <div className="qa-list">{f(T.ask).map((r, i) => (
+          <details key={i} className="qa">
+            <summary><Tag x={r} />{r[0]}</summary>
+            <p>{r[1]}</p>
+          </details>
+        ))}</div>
+      </section>
+
+      <section className="panel">
+        <SecT id="p-sci" title="과학 원리 배경" note="학생 질문에 답하고 결과를 해석할 때" />
+        <Science items={sciences} />
+        {notes.map((c) => <Callout key={c.t} tone="info" title={c.t}><p>{c.d}</p></Callout>)}
+      </section>
+
+      <section className="panel">
+        <SecT id="p-trouble" title="실험이 안 될 때" />
+        <div className="tbl-wrap"><table className="plan-table">
+          <thead><tr><th>이럴 때</th><th>흔한 까닭</th><th>이렇게 해 보세요</th></tr></thead>
+          <tbody>{f(T.trouble).map((r) => <tr key={r[0]}><td><Tag x={r} /><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+        </table></div>
+      </section>
+
+      <section className="panel">
+        <SecT id="p-key" title="정답과 예시 답" note="실험값은 학생 결과를 그대로 인정" />
+        <AnswerKey n={n} work={both ? work : 'rain'} />
+      </section>
+
+      <section className="panel">
+        <SecT id="p-assess" title="평가 기준" note="관찰과 앱 기록으로 확인" />
+        <div className="tbl-wrap"><table className="plan-table rubric">
+          <thead><tr><th>보는 것</th><th>잘함</th><th>보통</th><th>노력 필요</th></tr></thead>
+          <tbody>{f(T.assess).map((r) => <tr key={r[0] + (tagOf(r) || '')}><td><Tag x={r} /><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody>
+        </table></div>
+      </section>
+
+      <div className="grid-2">
+        <section className="panel">
+          <SecT id="p-diff" title="도움이 필요할 때" />
+          <ul>{f(T.diff.help).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+        </section>
+        <section className="panel">
+          <SecT title="더 나아가기" />
+          <ul>{f(T.diff.more).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+        </section>
+      </div>
+
+      <section className="panel">
+        <SecT title="탐구일지에 남길 것" />
+        <ul className="check-list">{T.journal.map((g) => <li key={g}>{g}</li>)}</ul>
+      </section>
+    </div>
+  )
+}
+
+function Guide() {
+  const toc = [['g-over', '대회 한눈에'], ['g-app', '앱 쓰는 법'], ['g-works', '두 작품 이해'], ['g-expert', '전문가 지도 날'], ['g-mb', '마이크로비트'], ['g-caution', '주의할 점'], ['g-mat', '준비물 전체'], ['g-words', '어려운 말 풀이']]
+  const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const G = GUIDE
+  return (
+    <div className="guide-wrap">
+      <nav className="guide-toc no-print" aria-label="지도 길잡이 목차">
+        <b>지도 길잡이</b>
+        {toc.map(([id, l]) => <button key={id} type="button" onClick={() => jump(id)}>{l}</button>)}
+        <button type="button" className="btn ghost small" onClick={() => window.print()} style={{ marginTop: 8 }}>인쇄</button>
+      </nav>
+      <div className="stack" style={{ gap: 16, minWidth: 0 }}>
+        <section className="panel">
+          <SecT id="g-over" title="대회 한눈에 보기" />
+          <div className="tbl-wrap"><table className="plan-table">
+            <thead><tr><th>날짜</th><th>하는 일</th><th>지도와 관련된 점</th></tr></thead>
+            <tbody>{G.schedule.map((r) => <tr key={r[0]}><td className="nw"><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+          </table></div>
+          <h3 className="h3">본심사 기준</h3>
+          <div className="criteria">{G.criteria.map(([k, v, d]) => (
+            <div key={k} className="crit"><div className="crit-top"><b>{k}</b><span>{v}점</span></div><div className="crit-bar"><i style={{ width: v + '%' }} /></div><p>{d}</p></div>
+          ))}</div>
+          <p className="lead" style={{ marginTop: 12 }}>{G.criteriaNote}</p>
+          <h3 className="h3">12월 12일까지 학생이 할 수 있어야 할 것</h3>
+          <ul className="check-list">{G.goals.map((g) => <li key={g}>{g}</li>)}</ul>
+          <h3 className="h3">여섯 차시 계획</h3>
+          <div className="tbl-wrap"><table className="plan-table">
+            <thead><tr><th>차시</th><th>때</th><th>함께 하는 것</th><th>빗물 건조망 덮개</th><th>테이프 감개</th></tr></thead>
+            <tbody>{G.plan.map((r) => <tr key={r[0]}><td><a href={`#/teacher/plan/${r[0]}`} className="nlink">{r[0]}</a></td><td className="nw">{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td></tr>)}</tbody>
+          </table></div>
+          <p className="small muted" style={{ marginTop: 8 }}>{G.planNote}</p>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-app" title="이 앱을 수업에 쓰는 법" />
+          <div className="kv-list">{G.app.map(([k, v]) => <div key={k}><b>{k}</b><p>{v}</p></div>)}</div>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-works" title="두 작품 이해하기" note="숫자는 계획서 값이고 계산으로 예상한 값" />
+          {['rain', 'tape'].map((w) => (
+            <div key={w} className={'work-' + w + ' work-block'}>
+              <h3 className="h3"><span className={'chip ' + w}>{WORKS[w].name}</span></h3>
+              <p className="lead">{G.works[w].one}</p>
+              <div className="fig-row">{G.works[w].figs.map((src) => <img key={src} src={src} alt="" loading="lazy" />)}</div>
+              <div className="tbl-wrap"><table className="plan-table">
+                <thead><tr><th>숫자</th><th>어디서 나왔나</th></tr></thead>
+                <tbody>{G.works[w].numbers.map((r) => <tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td></tr>)}</tbody>
+              </table></div>
+            </div>
+          ))}
+          <h3 className="h3">왜 물 무게로 힘을 잴까</h3>
+          <div className="kv-list">{G.works.water.map(([k, v, w]) => <div key={k}><b><span className={'chip ' + w}>{k}</span></b><p>{v}</p></div>)}</div>
+          <p className="small muted">과학에서 힘의 단위는 N(뉴턴)이고, 물 100 g의 무게가 약 1 N입니다.</p>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-expert" title="전문가 지도 날" />
+          <p className="lead">{G.expert.when}</p>
+          <div className="grid-2 inner">
+            <div><h3 className="h3">챙길 것</h3><ul className="check-list">{G.expert.bring.map((g) => <li key={g}>{g}</li>)}</ul></div>
+            <div><h3 className="h3">그날 학생이 할 일</h3><ol>{G.expert.todo.map((g) => <li key={g}>{g}</li>)}</ol></div>
+          </div>
+          <h3 className="h3">질문 예시</h3>
+          <div className="grid-2 inner">
+            {['rain', 'tape'].map((w) => <div key={w}><b className="sub-t"><span className={'chip ' + w}>{WORKS[w].name}</span></b><ul>{G.expert.questions[w].map((q) => <li key={q}>{q}</li>)}</ul></div>)}
+          </div>
+          <h3 className="h3">지도가 끝난 뒤</h3>
+          <ul>{G.expert.after.map((g) => <li key={g}>{g}</li>)}</ul>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-mb" title="마이크로비트 도입 계획" note="전문가 지도 뒤, 빗물 덮개만" />
+          <p className="lead">{G.microbit.intro}</p>
+          <h3 className="h3">쓰는 곳</h3>
+          <ul>{G.microbit.uses.map((g) => <li key={g}>{g}</li>)}</ul>
+          <h3 className="h3">살 것</h3>
+          <div className="tbl-wrap"><table className="plan-table">
+            <thead><tr><th>품목</th><th>수량</th><th>가격</th><th>비고</th></tr></thead>
+            <tbody>{G.microbit.buy.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="nw">{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody>
+          </table></div>
+          <h3 className="h3">배우는 순서</h3>
+          <div className="tbl-wrap"><table className="plan-table">
+            <thead><tr><th style={{ width: 90 }}>회</th><th>배울 것</th></tr></thead>
+            <tbody>{G.microbit.steps.map((r) => <tr key={r[0]}><td className="nw"><b>{r[0]}</b></td><td>{r[1]}</td></tr>)}</tbody>
+          </table></div>
+          <p className="small muted" style={{ marginTop: 8 }}>{G.microbit.note}</p>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-caution" title="지도할 때 주의할 점" />
+          <ul className="caution-list">{G.cautions.map((g) => <li key={g}>{g}</li>)}</ul>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-mat" title="준비물 전체 목록" />
+          <div className="tbl-wrap"><table className="plan-table">
+            <thead><tr><th>품목</th><th>쓰는 차시</th><th>수량</th><th>작품</th></tr></thead>
+            <tbody>{G.materials.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="nw">{r[1]}</td><td>{r[2]}</td><td>{r[3] && <span className={'chip ' + (r[3] === '빗물' ? 'rain' : 'tape')}>{r[3]}</span>}</td></tr>)}</tbody>
+          </table></div>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-words" title="계획서의 어려운 말 풀이" note="학생 낱말 사전과 같은 내용" />
+          <WordsTable />
+          <h3 className="h3">참고한 자료</h3>
+          <ul className="small">{G.refs.map((g) => <li key={g}>{g}</li>)}</ul>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function WordsTable() {
+  const rows = GLOSSARY
+  return (
+    <div className="tbl-wrap"><table className="plan-table">
+      <thead><tr><th>작품</th><th>낱말</th><th>학생에게 이렇게 설명</th><th>차시</th></tr></thead>
+      <tbody>{rows.map((r) => <tr key={r[1]}><td><span className={'chip ' + (r[0] === '빗물' ? 'rain' : r[0] === '테이프' ? 'tape' : 'green')}>{r[0]}</span></td><td className="nw"><b>{r[1]}</b></td><td>{r[2]}</td><td className="nw">{r[3]}</td></tr>)}</tbody>
+    </table></div>
   )
 }
 
@@ -356,7 +619,7 @@ function Show({ work, n }) {
   const s = SESSIONS[w][Math.min(5, Math.max(0, n - 1))]
   const [open, setOpen] = useState({})
   useEffect(() => { setOpen({}) }, [w, n])
-  const asks = (TEACH[s.n]?.ask || []).filter((x) => !x[2] || x[2] === w)
+  const asks = pick(TEACH[s.n]?.ask, w)
   return (
     <div className={'show work-' + w}>
       <div style={{ position: 'relative' }}>
@@ -457,6 +720,7 @@ export default function Teacher({ route }) {
   if (tab === 's') page = <Detail pin={pin} s={(students || []).find((x) => x.id === route[1])} n={+route[2] || 1} onDone={load} />
   else if (tab === 'plan') page = <Plan n={Math.min(6, Math.max(1, +route[1] || 1))} />
   else if (tab === 'settings') page = <Settings pin={pin} onPin={setPin} />
+  else if (tab === 'guide') page = <Guide />
   else page = <Dashboard students={students} />
   return (
     <>

@@ -24,7 +24,7 @@ export default function Home() {
       <section className="hero">
         <div className="hero-card">
           <span className={'chip ' + user.work}>{W.name}</span>
-          <h1>{user.name}의<br />발명 탐구 실험실</h1>
+          <h1><span>{user.name}의</span> <span className="nobr">발명 탐구 실험실</span></h1>
           <Talk work={user.work} text={W.hello} />
           <div className="row" style={{ marginTop: 'auto' }}>
             <a className="btn" href={`#/s/${next.n}`}>{next.n}차시 이어서 하기</a>
@@ -49,7 +49,7 @@ export default function Home() {
                 <span className="num">{s.n}</span>
                 <span className="k">{s.kicker}</span>
                 <span className="t">{s.title}</span>
-                {fb?.stamp && <span className="stampmark">참 잘<br />했어요</span>}
+                {fb?.stamp && <span className="stampmark">참 잘했어요</span>}
                 <span className="bar"><i style={{ width: Math.round(prog[i] * 100) + '%' }} /></span>
               </a>
             )

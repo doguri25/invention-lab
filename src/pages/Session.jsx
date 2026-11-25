@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../lib/store'
 import { SESSIONS, WORKS } from '../data/content'
-import { Section, Talk, Tools, Steps, Picks, RecordTable, Stairs, Think, Quiz, LineChart } from '../components/ui'
+import { Section, Talk, Tools, Steps, Picks, RecordTable, Stairs, Think, Quiz, LineChart, Learn, Callout } from '../components/ui'
 import { LabSwitch } from '../labs'
 
 function Predict({ p, data, set }) {
@@ -92,6 +92,21 @@ function Speech({ s, data, set }) {
   )
 }
 
+// 차시 안에서 바로 가기(해시 주소를 건드리지 않고 스크롤만)
+function Jump({ items }) {
+  const go = (id) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    const reduce = document.documentElement.dataset.motion === '0' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  }
+  return (
+    <nav className="jump no-print" aria-label="이 차시 안에서 바로 가기">
+      {items.map(([id, label]) => <button key={id} type="button" onClick={() => go(id)}>{label}</button>)}
+    </nav>
+  )
+}
+
 export default function Session({ n }) {
   const user = useApp((s) => s.user)
   const list = SESSIONS[user.work]
@@ -100,37 +115,58 @@ export default function Session({ n }) {
   const fb = useApp((st) => st.feedback[s.key])
   const setField = useApp((st) => st.setField)
   const set = (k, v) => setField(s.key, k, v)
+  const [tipsOpen, setTipsOpen] = useState(false)
   let sec = 0
   const N = () => ++sec
+  const jumps = [['mission', '미션'], s.learn.length && ['learn', '알아 두기'], s.steps.length && ['steps', '실험 순서'], s.lab && ['lab', '3D 실험'],
+    s.speech && ['speech', '1분 원고'], s.record && ['record', '기록'], s.calc && ['calc', '계산'], s.think && ['think', '생각'], ['quiz', '퀴즈'], ['end', '마무리']].filter(Boolean)
   return (
     <div>
       <div className="sess-head">
         <span className="nbadge" aria-hidden="true">{s.n}</span>
-        <div>
+        <div className="sess-title">
           <span className={'chip ' + (s.kicker === '공통' ? 'green' : user.work)}>{s.n}차시 · {s.kicker}</span>
-          <h1 style={{ marginTop: 4 }}>{s.title}</h1>
+          <h1>{s.title}</h1>
         </div>
         <nav className="dots no-print" aria-label="차시 이동">
           {list.map((x) => <a key={x.n} href={`#/s/${x.n}`} className={x.n === s.n ? 'on' : ''} aria-current={x.n === s.n ? 'page' : undefined} aria-label={`${x.n}차시`}>{x.n}</a>)}
         </nav>
       </div>
+      <Jump items={jumps} />
       <div className="split">
         <div className="stack" style={{ gap: 16 }}>
           <Section n={N()} title="오늘의 미션" id="mission">
             <Talk work={user.work} expr={s.n === 6 ? 'wow' : 'smile'} text={s.bubble} />
-            <p style={{ marginTop: 14, fontWeight: 700 }}>{s.mission}</p>
+            <p className="mission">{s.mission}</p>
           </Section>
+          {s.learn.length > 0 && (
+            <Section n={N()} title="알아 두기" id="learn" note="실험 전에 읽어요">
+              <Learn items={s.learn} />
+            </Section>
+          )}
           {s.steps.length > 0 && (
             <Section n={N()} title="준비물과 실험 순서" id="steps">
               <Tools items={s.tools} />
               <div style={{ height: 14 }} />
               <Steps items={s.steps} />
+              <Callout tone="safe" title="안전" items={s.safety} />
+              {s.tips.length > 0 && (
+                <div className="tips">
+                  <button type="button" className="tips-btn" aria-expanded={tipsOpen} onClick={() => setTipsOpen(!tipsOpen)}>
+                    <span>실험이 잘 안 되면</span><span aria-hidden="true">{tipsOpen ? '접기' : '펼치기'}</span>
+                  </button>
+                  {tipsOpen && <ul>{s.tips.map((t) => <li key={t}>{t}</li>)}</ul>}
+                </div>
+              )}
             </Section>
+          )}
+          {s.steps.length === 0 && s.tips.length > 0 && (
+            <Callout tone="info" title="이렇게 하면 쉬워요" items={s.tips} />
           )}
           {s.lab && (
             <Section n={N()} title={'3D 실험실: ' + s.lab.title} id="lab">
               <Predict p={s.lab.predict} data={data} set={set} />
-              <ol style={{ margin: '14px 0 0', paddingLeft: 22 }}>{s.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
+              <ol className="guide-list">{s.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
               {s.lab.predict && data.predict && (
                 <label className="stack" style={{ gap: 6, marginTop: 12 }}>
                   <b>실험해 보니 어땠나요?</b>
@@ -139,7 +175,7 @@ export default function Session({ n }) {
               )}
             </Section>
           )}
-          {s.speech && <Speech s={s} data={data} set={set} />}
+          {s.speech && <div id="speech" className="stack" style={{ gap: 16 }}><Speech s={s} data={data} set={set} /></div>}
           {s.record && (
             <Section n={N()} title="기록해요" id="record" note="진짜 실험에서 잰 값을 적어요">
               <p className="quiz-q">{s.record.title}</p>
@@ -161,6 +197,20 @@ export default function Session({ n }) {
               </div>
             </Section>
           )}
+          {s.more.length > 0 && (
+            <Section n={N()} title="더 해 보기" id="more" note="시간이 남거나 집에서">
+              <ul className="more-list">
+                {s.more.map((t, i) => (
+                  <li key={t}>
+                    <button type="button" onClick={() => set('more' + i, !data['more' + i])} aria-pressed={!!data['more' + i]}>
+                      <span className="more-box" aria-hidden="true">{data['more' + i] ? '✓' : ''}</span>
+                      <span>{t}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
           <Section n={N()} title="마무리 퀴즈" id="quiz">
             <Quiz items={s.quiz} data={data} onChange={set} />
           </Section>
@@ -171,13 +221,23 @@ export default function Session({ n }) {
             </label>
             <div className="stack" style={{ marginTop: 14, gap: 8 }}>
               {s.self.map((t, i) => (
-                <button key={t} type="button" className="row" onClick={() => set('self' + i, !data['self' + i])} aria-pressed={!!data['self' + i]}
-                  style={{ border: 0, background: data['self' + i] ? 'var(--star-soft)' : '#f8f9fa', borderRadius: 14, padding: '10px 14px', textAlign: 'left', gap: 10 }}>
-                  <span style={{ fontSize: '1.3em', color: '#f9ab00' }} aria-hidden="true">{data['self' + i] ? '★' : '☆'}</span>
-                  <span style={{ fontWeight: 600 }}>{t}</span>
+                <button key={t} type="button" className="self-btn" onClick={() => set('self' + i, !data['self' + i])} aria-pressed={!!data['self' + i]}>
+                  <span className="star" aria-hidden="true">{data['self' + i] ? '★' : '☆'}</span>
+                  <span>{t}</span>
                 </button>
               ))}
             </div>
+            {s.journal.length > 0 && (
+              <div className="journal-box">
+                <b>탐구일지에 남길 것</b>
+                <ul>{s.journal.map((t, i) => (
+                  <li key={t}>
+                    <label><input type="checkbox" checked={!!data['j' + i]} onChange={(e) => set('j' + i, e.target.checked)} /><span>{t}</span></label>
+                  </li>
+                ))}</ul>
+                <a className="btn tone small" href="#/journal">탐구일지 쓰러 가기</a>
+              </div>
+            )}
             {fb && (fb.stamp || fb.comment) && (
               <div className="stampbox" style={{ marginTop: 16 }}>
                 {fb.stamp && <span className="stamp-c">참 잘했어요</span>}
@@ -194,7 +254,7 @@ export default function Session({ n }) {
           <div className="labbox">
             <LabSwitch key={s.key} sim={s.lab?.sim} work={user.work} speechParts={(s.speech || []).map((p) => ({ label: p.label, text: data[p.id] }))} />
           </div>
-          <p className="small muted" style={{ marginTop: 8 }}>{WORKS[user.work].name} · 한 손가락으로 돌리고, 두 손가락으로 크게 봐요.</p>
+          <p className="small muted" style={{ marginTop: 8 }}>{WORKS[user.work].name}. 한 손가락으로 돌리고, 두 손가락으로 크게 봐요.</p>
         </aside>
       </div>
     </div>

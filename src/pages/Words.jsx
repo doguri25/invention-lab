@@ -57,11 +57,14 @@ export default function Words() {
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
-        {list.map(([w, t, d]) => (
+        {list.map(([w, t, d, n]) => (
           <article key={t} className="panel" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 10, borderTop: `5px solid ${w === '공통' ? 'var(--green)' : w === '빗물' ? 'var(--rain)' : 'var(--tape)'}` }}>
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <h2 className="display" style={{ fontSize: '1.4em' }}>{t}</h2>
-              <span className={'chip ' + (w === '공통' ? 'green' : w === '빗물' ? 'rain' : 'tape')}>{w}</span>
+              <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+                {n && <span className="chip gray">{n}차시</span>}
+                <span className={'chip ' + (w === '공통' ? 'green' : w === '빗물' ? 'rain' : 'tape')}>{w}</span>
+              </span>
             </div>
             <p style={{ flex: 1 }}>{d}</p>
             <button className={'btn small ' + (known[t] ? '' : 'ghost')} aria-pressed={!!known[t]} onClick={() => setField('words', t, !known[t])} style={{ alignSelf: 'flex-start' }}>

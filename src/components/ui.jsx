@@ -120,6 +120,7 @@ const near = (v, ans, tol) => {
 }
 
 export function Stairs({ items, data = {}, onChange, readOnly, showAnswers }) {
+  const [hint, setHint] = useState({})
   return (
     <div className="stairs">
       {items.map((it, i) => {
@@ -127,23 +128,68 @@ export function Stairs({ items, data = {}, onChange, readOnly, showAnswers }) {
         const filled = blanks.every((b) => (data[b.b] ?? '') !== '')
         const ok = filled && blanks.every((b) => b.free || near(data[b.b], b.ans, b.tol))
         return (
-          <div className="stair" key={it.id}>
+          <div className={'stair' + (filled ? (ok ? ' is-ok' : ' is-no') : '')} key={it.id}>
             <span className="k" aria-hidden="true">{i + 1}</span>
-            {it.parts.map((p, j) => typeof p === 'string' ? <span key={j}>{p}</span> : (
-              readOnly ? (
-                <span key={j} className={'blank ' + (p.free ? '' : near(data[p.b], p.ans, p.tol) ? 'ok' : 'no')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {data[p.b] || '·'}{showAnswers && !p.free && <small style={{ color: '#188038', marginLeft: 4 }}>({p.ans})</small>}
-                </span>
-              ) : (
-                <input key={j} className={'blank ' + (data[p.b] === undefined || data[p.b] === '' ? '' : p.free ? '' : near(data[p.b], p.ans, p.tol) ? 'ok' : 'no')}
-                  inputMode="decimal" aria-label={`${i + 1}번 빈칸`} value={data[p.b] ?? ''} onChange={(e) => onChange(p.b, e.target.value)} />
-              )
-            ))}
-            {filled && !readOnly && <span className={'mark ' + (ok ? 'ok' : 'no')}>{ok ? '맞았어요' : '다시 계산해 봐요'}</span>}
+            <div className="stair-body">
+              {it.parts.map((p, j) => typeof p === 'string' ? <span key={j} className="stair-t">{p}</span> : (
+                readOnly ? (
+                  showAnswers && (data[p.b] ?? '') === '' ? (
+                    <span key={j} className="blank key">{p.free ? '학생 값' : p.ans}</span>
+                  ) : (
+                    <span key={j} className={'blank ' + (p.free ? '' : near(data[p.b], p.ans, p.tol) ? 'ok' : 'no')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {data[p.b] || '·'}{showAnswers && !p.free && <small style={{ color: '#188038', marginLeft: 4 }}>({p.ans})</small>}
+                    </span>
+                  )
+                ) : (
+                  <input key={j} className={'blank ' + (data[p.b] === undefined || data[p.b] === '' ? '' : p.free ? '' : near(data[p.b], p.ans, p.tol) ? 'ok' : 'no')}
+                    inputMode="decimal" aria-label={`${i + 1}번 빈칸`} value={data[p.b] ?? ''} onChange={(e) => onChange(p.b, e.target.value)} />
+                )
+              ))}
+            </div>
+            <div className="stair-side">
+              {filled && !readOnly && <span className={'mark ' + (ok ? 'ok' : 'no')}>{ok ? '맞았어요' : '다시 계산해 봐요'}</span>}
+              {it.hint && !readOnly && !ok && (
+                <button type="button" className="hint-btn" aria-expanded={!!hint[i]} onClick={() => setHint({ ...hint, [i]: !hint[i] })}>힌트</button>
+              )}
+            </div>
+            {it.hint && !readOnly && hint[i] && !ok && <p className="stair-hint" role="note">{it.hint}</p>}
           </div>
         )
       })}
     </div>
+  )
+}
+
+// 알아 두기 카드
+export function Learn({ items }) {
+  if (!items || !items.length) return null
+  return (
+    <div className="learn">
+      {items.map((c) => (
+        <article className="learn-card" key={c.t}>
+          <div className="learn-in">
+            {c.img && <div className="learn-img"><img src={c.img} alt="" loading="lazy" /></div>}
+            <div className="learn-body">
+              <h3>{c.t}</h3>
+              <p>{c.d}</p>
+              {c.ex && <p className="learn-ex">{c.ex}</p>}
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
+// 안전·요령 같은 짧은 목록 상자
+export function Callout({ tone = 'info', title, items, children }) {
+  if (!children && (!items || !items.length)) return null
+  return (
+    <aside className={'callout ' + tone} aria-label={title}>
+      <b className="callout-t">{title}</b>
+      {items && <ul>{items.map((t) => <li key={t}>{t}</li>)}</ul>}
+      {children}
+    </aside>
   )
 }
 
