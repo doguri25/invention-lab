@@ -3,7 +3,7 @@
 // 빗물 덮개(진짜 크기)
 export const RAIN = {
   plateCm2: 60 * 60, // 받이판 넓이
-  coverCm2: 240 * 160, // 닫힌 덮개 위 빗물(홈통으로 모임)
+  coverCm2: 120 * 160, // 닫힌 덮개 위 빗물(홈통으로 모임)
   closeAt: 90, // 40 + 20 + 30
   openAt: 10, // 40 - 20 - 10
   bottleMax: 2000,

@@ -45,10 +45,10 @@ export function RainLab({ mode = 'full', onPart, highlight, labelsDefault = fals
   useEffect(() => { if (mode === 'demo') sim.setSpeed(60) }, [mode]) // eslint-disable-line
   return (
     <>
-      <Stage camera={[3.1, 2.4, 4.3]} target={[0.35, 0.65, 0]} minD={2.5} maxD={9} autoRotate={autoRotate} label="빗물 건조망 덮개 3D 모형">
+      <Stage camera={[2.6, 2.2, 4.3]} target={[0.3, 0.88, 0]} minD={2.2} maxD={10} autoRotate={autoRotate} label="빗물 건조망 덮개 3D 모형">
         <RainDriver sim={sim} />
         <RainCoverModel c={v.c} water={v.water} rate={sim.rate} draining={v.closed && v.water > 10} labels={labels} onPart={onPart} highlight={highlight} />
-        {mascot && <Mascot3D kind="rain" position={[-0.7, 0, 1.75]} scale={0.5} cheer={v.events.length} rotationY={0.5} mood={v.closed ? 'wow' : 'smile'} />}
+        {mascot && <Mascot3D kind="rain" position={[-1.5, 0, 0.75]} scale={0.5} cheer={v.events.length} rotationY={0.5} mood={v.closed ? 'wow' : 'smile'} />}
       </Stage>
       {!bare && (
         <div className="lab-top">
