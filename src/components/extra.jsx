@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { THINK_CARDS } from '../data/content'
+import { rich } from '../lib/rich'
 
 /* 그림 크게 보기 */
 let openZoom = null
@@ -48,7 +49,7 @@ export function Fig({ fig }) {
   return (
     <figure className="fig">
       <Pic src={fig[0]} alt={fig[1]} />
-      <figcaption>{fig[1]}</figcaption>
+      <figcaption>{rich(fig[1], { kw: false })}</figcaption>
     </figure>
   )
 }
@@ -65,7 +66,7 @@ export function StepList({ items }) {
           <div className="step2-body">
             <span className="step2-n" aria-hidden="true">{i + 1}</span>
             <h3>{title}</h3>
-            <p>{detail}</p>
+            <p>{rich(detail)}</p>
           </div>
         </li>
       ))}
@@ -280,7 +281,7 @@ export function Create({ spec, data = {}, set, sk = {}, setSk, readOnly }) {
   const [peek, setPeek] = useState(false)
   return (
     <div className="create">
-      <p className="create-intro">{spec.intro}</p>
+      <p className="create-intro">{rich(spec.intro)}</p>
       <div className="stack" style={{ gap: 24 }}>
         {spec.items.map((it) => {
           if (it.type === 'list') return <IdeaList key={it.id} item={it} data={data} onChange={set} readOnly={readOnly} peek={peek} />

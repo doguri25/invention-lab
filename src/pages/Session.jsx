@@ -7,6 +7,7 @@ import { Section, Talk, Tools, Picks, RecordTable, Stairs, Think, Quiz, LineChar
 import { StepList, Fig, Create, BarChart, Wave, Cookie, Stamp, useNarrow } from '../components/extra'
 import { LabFrame } from '../labs/LabFrame'
 import { fmt } from '../lib/physics'
+import { rich } from '../lib/rich'
 
 const idOf = (t) => 'b-' + t.replace(':', '-')
 const calm = () => document.documentElement.dataset.motion === '0' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -51,7 +52,7 @@ function Recall({ s, prev, data, set, records, work }) {
               onClick={() => { if (data.recallqi === undefined) set('recallqi', qi); set('recallq', j) }}>{o}</button>
           ))}
         </div>
-        {v !== undefined && <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '잘 기억하고 있어요. ' : '다시 떠올려 봐요. '}{q.why}</p>}
+        {v !== undefined && <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '잘 기억하고 있어요. ' : '다시 떠올려 봐요. '}{rich(q.why)}</p>}
       </div>
     </>
   )
@@ -211,7 +212,7 @@ export default function Session({ n, sec }) {
     switch (t) {
       case 'mission': return sect(t, { title: '오늘의 미션' }, <>
         <Talk work={work} expr={s.n === 6 ? 'wow' : 'smile'} text={s.bubble} />
-        <p className="mission">{s.mission}</p>
+        <p className="mission">{rich(s.mission)}</p>
         <p className="small muted" style={{ margin: '14px 0 8px' }}>오늘 준비물</p>
         <Tools items={s.tools} />
       </>)
@@ -237,7 +238,7 @@ export default function Session({ n, sec }) {
               <button type="button" className="tips-btn" aria-expanded={tipsOpen} onClick={() => setTipsOpen(!tipsOpen)}>
                 <span>실험이 잘 안 되면</span><span aria-hidden="true">{tipsOpen ? '접기' : '펼치기'}</span>
               </button>
-              {tipsOpen && <ul>{s.tips.map((x) => <li key={x}>{x}</li>)}</ul>}
+              {tipsOpen && <ul>{s.tips.map((x) => <li key={x}>{rich(x)}</li>)}</ul>}
             </div>
           )}
         </>)
@@ -254,12 +255,12 @@ export default function Session({ n, sec }) {
         </>)
       }
       case 'calc': return sect(t, { note: '빈칸을 채우면 바로 확인' }, <>
-        {s.calcNote && <p className="calc-note">{s.calcNote}</p>}
+        {s.calcNote && <p className="calc-note">{rich(s.calcNote)}</p>}
         <Stairs items={s.calc} data={data} onChange={set} />
       </>)
       case 'lab': return sect(t, { title: '3D 실험실: ' + s.lab.title, note: narrow ? '' : '오른쪽 화면에서 해요' }, <>
         {narrow && lab}
-        <ol className="guide-list">{s.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
+        <ol className="guide-list">{s.lab.guide.map((g) => <li key={g}>{rich(g, { kw: false })}</li>)}</ol>
         {s.lab.observeQ && (
           <div className="observe">
             {s.lab.predict && <p className="small">내 예상: <b>{data.predict || '아직 고르지 않았어요'}</b></p>}
@@ -269,7 +270,7 @@ export default function Session({ n, sec }) {
             </label>
             {s.lab.predict && data.predict && data.observe && (
               <p className={'fb ' + (data.predict === s.lab.predict.answer ? 'ok' : 'no')}>
-                {data.predict === s.lab.predict.answer ? '예상이 맞았어요. ' : '예상과 달랐어요. 그래서 실험을 해 보는 거예요. '}확인한 결과: {s.lab.predict.answer}
+                {data.predict === s.lab.predict.answer ? '예상이 맞았어요. ' : '예상과 달랐어요. 그래서 실험을 해 보는 거예요. '}확인한 결과: <b className="nv">{s.lab.predict.answer}</b>
               </p>
             )}
           </div>
@@ -319,7 +320,7 @@ export default function Session({ n, sec }) {
         <div className="flips">
           {s.judge.map(([q, a], i) => (
             <button key={i} type="button" className="flipcard" onClick={() => setFlip({ ...flip, [i]: !flip[i] })} aria-pressed={!!flip[i]}>
-              <b>{q}</b><span>{flip[i] ? a : '눌러서 답의 방향 보기'}</span>
+              <b>{q}</b><span>{flip[i] ? rich(a) : '눌러서 답의 방향 보기'}</span>
             </button>
           ))}
         </div>
@@ -373,7 +374,7 @@ export default function Session({ n, sec }) {
           </div>
         )}
         <div className="next-up">
-          <b>오늘은 여기까지</b><p>{s.next}</p>
+          <b>오늘은 여기까지</b><p>{rich(s.next)}</p>
         </div>
       </>)
       default: return null

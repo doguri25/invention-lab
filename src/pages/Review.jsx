@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../lib/store'
 import { SESSIONS, GLOSSARY, WORKS } from '../data/content'
 import { Stamp, Wave } from '../components/extra'
+import { rich } from '../lib/rich'
 
 const shuffle = (arr, seed) => {
   const a = arr.slice(); let x = seed || 1
@@ -59,7 +60,7 @@ function Runner({ items, title, onDone, onAnswer, work }) {
       </div>
       {v !== undefined && (
         <>
-          <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '맞았어요. ' : '아쉬워요. '}{q.why}</p>
+          <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '맞았어요. ' : '아쉬워요. '}{rich(q.why)}</p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn" autoFocus onClick={() => { if (i + 1 >= items.length) onDone(score, items.length, false); setI(i + 1) }}>{i + 1 >= items.length ? '결과 보기' : '다음 문제'}</button>
           </div>
@@ -88,7 +89,7 @@ function Cards({ work }) {
             <button key={k} type="button" className={'kcard' + (open[k] ? ' on' : '')} aria-expanded={!!open[k]} onClick={() => setOpen({ ...open, [k]: !open[k] })}>
               <span className="kcard-n">{c.n}차시</span>
               <b>{c.t}</b>
-              {open[k] ? <><span className="kcard-d">{c.d}</span>{c.ex && <span className="kcard-ex">{c.ex}</span>}</> : <span className="kcard-hint">눌러서 확인</span>}
+              {open[k] ? <><span className="kcard-d">{rich(c.d)}</span>{c.ex && <span className="kcard-ex">{rich(c.ex, { kw: false })}</span>}</> : <span className="kcard-hint">눌러서 확인</span>}
             </button>
           )
         })}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../lib/store'
 import { LabSwitch } from './index'
 import { GESTURES, labHelp } from './help'
+import { rich } from '../lib/rich'
 
 const I = ({ d }) => <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d={d} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
@@ -35,11 +36,11 @@ export function LabFrame({ sim, work, speechParts, guide = [], title, auto = tru
               <div className="gest">
                 {GESTURES.map(([a, b]) => <p key={a}><b>{a}</b><span>{b}</span></p>)}
               </div>
-              {guide.length > 0 && <><b className="lab-help-t">이렇게 해 봐요</b><ol>{guide.map((g) => <li key={g}>{g}</li>)}</ol></>}
+              {guide.length > 0 && <><b className="lab-help-t">이렇게 해 봐요</b><ol>{guide.map((g) => <li key={g}>{rich(g, { kw: false })}</li>)}</ol></>}
               <b className="lab-help-t">눈여겨볼 곳</b>
-              <p>{h.see}</p>
+              <p>{rich(h.see)}</p>
               <b className="lab-help-t">진짜 실험과 다른 점</b>
-              <p>{h.real}</p>
+              <p>{rich(h.real)}</p>
               <button type="button" className="btn" onClick={close}>알겠어요</button>
             </div>
           </div>
@@ -50,7 +51,7 @@ export function LabFrame({ sim, work, speechParts, guide = [], title, auto = tru
         <button type="button" className="lt-btn" onClick={() => window.dispatchEvent(new Event('invlab:resetview'))}><I d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5" />처음 시점으로</button>
         <button type="button" className="lt-btn" onClick={() => setFull(!full)} aria-pressed={full}><I d={full ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'} />{full ? '작게 보기' : '크게 보기'}</button>
       </div>
-      {!full && <p className="lab-see"><b>눈여겨볼 곳</b> {h.see}</p>}
+      {!full && <p className="lab-see"><b>눈여겨볼 곳</b> {rich(h.see)}</p>}
     </div>
   )
 }

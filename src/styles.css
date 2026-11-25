@@ -217,6 +217,7 @@ table.rec { width: 100%; border-collapse: collapse; min-width: 400px; }
 .labbox .mini-chart { max-width: 48%; }
 .mini-chart { background: rgba(255,255,255,.92); border-radius: 16px; padding: 8px 10px; box-shadow: 0 1px 6px rgba(60,64,67,.12); }
 .lbl3d { background: rgba(255,255,255,.95); border: 1.5px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; white-space: nowrap; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.1); pointer-events: none; font-family: var(--body); }
+.tick3d { font: 700 11px var(--body); color: #3c4043; white-space: nowrap; pointer-events: none; }
 .lbl3d b { color: var(--p); font-family: var(--display); font-weight: 400; margin-right: 4px; }
 .fallback3d { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--sub); }
 
@@ -344,7 +345,7 @@ table.rec { width: 100%; border-collapse: collapse; min-width: 400px; }
 .crit p { font-size: .88em; color: var(--sub); }
 .kv-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .kv-list > div { padding: 14px 16px; border-radius: var(--r-md); background: #f8f9fa; }
-.kv-list b { display: block; margin-bottom: 4px; }
+.kv-list div > b { display: block; margin-bottom: 4px; }
 .fig-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
 .fig-row img { width: 100%; background: #fff; border: 1.5px solid var(--line2); border-radius: var(--r-md); padding: 8px; }
 .work-block + .work-block { margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--line); }
@@ -404,6 +405,10 @@ body { background-color: var(--canvas); background-image: radial-gradient(circle
 .dock a:hover { background: #f1f3f4; }
 .dock a.on { background: var(--p); color: #fff; }
 body.lab-full .dock { display: none; }
+/* 크게 보기: 3D 상자가 위쪽 줄에 가리지 않게 */
+body.lab-full .topbar, body.lab-full .strip, body.lab-full .banner, body.lab-full .plan-bar { visibility: hidden; }
+body.lab-full .lab { z-index: 80; }
+body.lab-full { overflow: hidden; }
 /* 넓은 화면에서는 왼쪽에 세로로 선다(3D 실험 상자의 버튼을 가리지 않게) */
 @media (min-width: 961px) {
   .dock { left: 14px; bottom: auto; top: 50%; transform: translateY(-50%); flex-direction: column; border-radius: 40px; }
@@ -502,7 +507,7 @@ body.lab-full .dock { display: none; }
 .graph { margin-top: 16px; padding: 14px 16px; border-radius: 20px; border: 1.5px solid var(--line2); }
 .rec-note { margin-top: 8px; }
 .next-up { margin-top: 18px; padding: 14px 18px; border-radius: 20px 20px 20px 6px; background: var(--pt); color: var(--pd); }
-.next-up b { font-family: var(--display); font-weight: 400; font-size: 1.05em; }
+.next-up > b { font-family: var(--display); font-weight: 400; font-size: 1.05em; }
 .auto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
 .checkrow { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: #f6f8fb; cursor: pointer; font-weight: 600; min-height: 52px; }
 .checkrow.on { background: var(--green-soft); }
@@ -561,7 +566,7 @@ body.lab-full .dock { display: none; }
 .lt-btn:hover { background: var(--ps); color: var(--pd); border-color: var(--pt); }
 .lt-btn.new::after { content: ''; position: absolute; right: 6px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px #fff; }
 .lab-see { font-size: .86em; color: #3c4043; padding: 10px 14px; border-radius: 16px; background: rgba(255, 255, 255, .8); }
-.lab-see b { color: var(--pd); margin-right: 6px; }
+.lab-see > b:first-child { color: var(--pd); margin-right: 6px; }
 .lab-help { position: absolute; inset: 0; z-index: 8; background: rgba(241, 245, 251, .94); backdrop-filter: blur(6px); overflow: auto; display: flex; justify-content: center; padding: 18px; }
 .lab-help-in { max-width: 560px; margin: auto 0; display: flex; flex-direction: column; gap: 6px; font-size: .94em; }
 .lab-help h3 { font-family: var(--display); font-size: 1.3em; }
@@ -648,7 +653,7 @@ body.lab-full .dock { display: none; }
 .kcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .kcard { text-align: left; min-height: 120px; padding: 14px 16px; border-radius: 22px 22px 22px 8px; border: 1.5px solid var(--line); background: #fff; display: flex; flex-direction: column; gap: 6px; transition: background .2s, border-color .2s; }
 .kcard-n { font-size: .72em; font-weight: 800; color: var(--pd); }
-.kcard b { font-family: var(--display); font-weight: 400; font-size: 1.12em; line-height: 1.3; }
+.kcard > b { font-family: var(--display); font-weight: 400; font-size: 1.12em; line-height: 1.3; }
 .kcard-hint { margin-top: auto; font-size: .8em; color: var(--sub); }
 .kcard-d { font-size: .92em; }
 .kcard-ex { font-size: .86em; font-weight: 700; color: var(--pd); }
@@ -661,9 +666,9 @@ body.lab-full .dock { display: none; }
 .link-grid { display: grid; gap: 10px; }
 .link-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .link-c { padding: 12px 16px; border-radius: 18px; background: #f6f8fb; }
-.link-c b { display: block; font-size: .8em; color: var(--sub); margin-bottom: 2px; }
+.link-c > b { display: block; font-size: .8em; color: var(--sub); margin-bottom: 2px; }
 .link-c.now { background: var(--ps); }
-.link-c.now b { color: var(--pd); }
+.link-c.now > b { color: var(--pd); }
 .app-chip { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 10px; border-radius: 999px; background: var(--ps); color: var(--pd); font-size: .82em; font-weight: 700; white-space: nowrap; }
 .kv3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
 .kv3 p { padding: 10px 6px; border-radius: 16px; background: #f6f8fb; display: grid; }
@@ -761,3 +766,20 @@ html[data-motion='0'] .wave-rider, html[data-motion='0'] .stop-me { animation: n
   .banner { padding: 10px 12px; }
   .kv3 { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* 글 속 강조: 숫자와 단위(보라), 낱말 사전의 낱말(주제색), 핵심 문장(형광펜) */
+b.nv, b.kw, b.em { display: inline; font: inherit; font-weight: 800; margin: 0; white-space: normal; }
+b.nv { color: #7b1fa2; white-space: nowrap; }
+b.kw { color: var(--pd); }
+b.em { color: var(--pd); padding: 0 2px; border-radius: 3px; background: linear-gradient(transparent 56%, #fde68a 56%); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+b.em b.nv { color: inherit; }
+.bubble b.nv, .bubble b.kw, .bubble b.em { font-weight: 400; }
+.t-main b.kw { color: inherit; }
+@media print { b.em { background: none; text-decoration: underline; } }
+.shop-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.panel .shop-list { padding-left: 0; }
+.panel .shop-list li + li { margin-top: 0; }
+.shop-list li { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr); gap: 12px; padding: 10px 14px; border-radius: 14px; background: #f6f8fb; align-items: baseline; }
+.shop-list a { font-weight: 800; color: var(--pd); }
+.shop-list span { font-size: .9em; }
+@media (max-width: 640px) { .shop-list li { grid-template-columns: minmax(0, 1fr); gap: 2px; } }

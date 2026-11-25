@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { RoundedBox } from '@react-three/drei'
+import { RoundedBox, Html } from '@react-three/drei'
 import { Stage } from '../three/Stage'
 import { Mascot3D } from '../three/Mascot3D'
 import { C, Cup, Scale, Bottle, Rope, Table, Label } from '../three/parts'
@@ -432,6 +432,11 @@ const HOLE_H = 2
 const outflow = (ml, d) => { const h = ml / AREA - HOLE_H; if (h <= 0) return 0; return 0.62 * Math.PI * Math.pow(d / 20, 2) * Math.sqrt(2 * 981 * h) }
 const BCOL = ['#1a73e8', '#e8710a', '#188038']
 const MARKS = [250, 200, 150, 100]
+// 그림에서의 자리: 병은 받침대 위에 있고, 구멍은 100 mL 눈금보다 아래(바닥에서 2 cm)에 있다
+const SHELF = 0.34
+const ML_Y = (0.6 * 1.6) / 500 // 물 1 mL가 병 그림에서 차지하는 높이
+const HOLE_Y = 0.01 + HOLE_H * AREA * ML_Y
+const BASIN_TOP = 0.1
 
 function DrainDriver({ run, speed, st, onTick }) {
   useFrame((_, dtR) => {
@@ -454,19 +459,22 @@ function DrainDriver({ run, speed, st, onTick }) {
 function Stream({ x, ml, d, on }) {
   const ref = useRef()
   const N = 14
-  const m = useMemo(() => new THREE.Matrix4(), [])
+  const o = useMemo(() => ({ m: new THREE.Matrix4(), p: new THREE.Vector3(), q: new THREE.Quaternion(), s: new THREE.Vector3() }), [])
   useFrame(({ clock }) => {
     const mesh = ref.current; if (!mesh) return
     const head = Math.max(0, ml / AREA - HOLE_H)
     mesh.visible = on && head > 0
     const v = Math.sqrt(2 * 9.81 * head / 100) * 0.9
+    const y0 = SHELF + HOLE_Y
+    const land = Math.sqrt((y0 - BASIN_TOP) / 4.9) // 대야 물에 닿을 때까지
+    const k = 0.6 + d * 0.3 // 구멍이 클수록 굵은 물줄기
+    o.s.set(k, k, k)
     for (let i = 0; i < N; i++) {
-      const tt = ((i / N + clock.elapsedTime * 1.5) % 1) * 0.35
-      m.makeTranslation(x, 0.27 - 4.9 * tt * tt, 0.35 + v * tt * 1.4)
-      mesh.setMatrixAt(i, m)
+      const tt = ((i / N + clock.elapsedTime * 1.5) % 1) * land
+      o.p.set(x, y0 - 4.9 * tt * tt, 0.335 + v * tt * 1.4)
+      mesh.setMatrixAt(i, o.m.compose(o.p, o.q, o.s))
     }
     mesh.instanceMatrix.needsUpdate = true
-    mesh.scale.setScalar(0.6 + d * 0.3)
   })
   return (
     <instancedMesh ref={ref} args={[null, null, N]} frustumCulled={false}>
@@ -474,6 +482,19 @@ function Stream({ x, ml, d, on }) {
       <meshBasicMaterial color={C.water} />
     </instancedMesh>
   )
+}
+
+// 병 앞면의 눈금
+function Marks({ x, numbers }) {
+  return [300, ...MARKS].map((mk) => {
+    const y = SHELF + 0.01 + mk * ML_Y
+    return (
+      <group key={mk}>
+        <mesh position={[x - 0.15, y, 0.297]} rotation={[0, -0.47, 0]}><boxGeometry args={[0.13, 0.008, 0.004]} /><meshBasicMaterial color="#3c4043" /></mesh>
+        {numbers && <Html position={[x - 0.4, y, 0.297]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}><span className="tick3d">{mk}</span></Html>}
+      </group>
+    )
+  })
 }
 
 export function DrainSim() {
@@ -491,17 +512,22 @@ export function DrainSim() {
   const series = [0, 1, 2].map((i) => ({ name: '병 ' + 'ABC'[i], color: BCOL[i], pts: s.hist.map((h) => [h[0], h[i + 1]]) }))
   return (
     <>
-      <Stage camera={[0.4, 2.0, 6.0]} target={[0, 0.85, 0]} label="구멍 크기가 다른 세 병에서 물 빼기">
+      <Stage camera={[0.5, 2.2, 6.3]} target={[0, 1.0, 0.2]} label="구멍 크기가 다른 세 병에서 물 빼기">
         <DrainDriver run={run} speed={speed} st={st} onTick={() => setTick((x) => x + 1)} />
         <Table />
         {[-0.9, 0, 0.9].map((x, i) => (
           <group key={x}>
-            <Bottle position={[x, 0, 0]} r={0.33} h={1.6} fill={s.ml[i] / 500} holeY={0.27} />
+            <Bottle position={[x, SHELF, 0]} r={0.33} h={1.6} fill={s.ml[i] / 500} holeY={HOLE_Y} />
+            <Marks x={x} numbers={i === 0} />
             <Stream x={x} ml={s.ml[i]} d={s.holes[i]} on={run} />
-            <Label position={[x, -0.02, 0.62]}><b>{'ABC'[i]}</b>{s.holes[i]} mm · {Math.round(s.ml[i])} mL</Label>
+            <Label position={[x, SHELF + 1.6 + 0.26, 0]}><b>{'ABC'[i]}</b>{s.holes[i]} mm · {Math.round(s.ml[i])} mL</Label>
           </group>
         ))}
-        <mesh position={[0, 0.06, 0.75]}><boxGeometry args={[2.8, 0.12, 0.5]} /><meshStandardMaterial color="#90caf9" transparent opacity={0.6} /></mesh>
+        {/* 병 받침대와 물을 받는 대야 */}
+        <mesh position={[0, SHELF / 2, 0]} castShadow receiveShadow><boxGeometry args={[2.9, SHELF, 0.72]} /><meshStandardMaterial color={C.woodDeep} roughness={0.8} /></mesh>
+        <mesh position={[0, 0.06, 0.86]} receiveShadow><boxGeometry args={[3.0, 0.12, 0.98]} /><meshStandardMaterial color="#eceff1" /></mesh>
+        <mesh position={[0, BASIN_TOP + 0.022, 0.86]}><boxGeometry args={[2.9, 0.005, 0.9]} /><meshBasicMaterial color="#90caf9" transparent opacity={0.75} /></mesh>
+        <Label position={[1.36, SHELF + HOLE_Y + 0.02, 0.34]}>구멍</Label>
       </Stage>
       <div className="lab-top">
         <span className={'state ' + (run ? '' : 'idle')} role="status">{done ? '세 병 모두 100 mL!' : run ? `${Math.round(s.t)}초 지남` : '멈춤'}</span>

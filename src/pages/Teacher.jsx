@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { api } from '../lib/api'
 import { SESSIONS, WORKS, GLOSSARY } from '../data/content'
-import { TEACH, GUIDE, pick, tagOf } from '../data/guide'
+import { TEACH, GUIDE, pick, tagOf, MICROBIT_SHOPS } from '../data/guide'
 import { sessionProgress } from '../lib/progress'
 import { go } from '../lib/router'
 import { RecordTable, Stairs, Think, Callout } from '../components/ui'
 import { Create, Sketch } from '../components/extra'
 import { LabFrame } from '../labs/LabFrame'
 import { labHelp } from '../labs/help'
+import { rich } from '../lib/rich'
+
+const R = (t) => rich(t, { kw: false })
 import { blockName, sequence } from '../data/blocks'
 import { thinkItems } from '../lib/progress'
 
@@ -352,8 +355,8 @@ function Science({ items }) {
           {c.img && <div className="sci-img"><img src={c.img} alt="" loading="lazy" /></div>}
           <div>
             <h3>{c.w && <span className={'chip ' + c.w + ' tag'}>{WN[c.w]}</span>}{c.t}</h3>
-            <p>{c.d}</p>
-            {c.list && <>{c.listTitle && <b className="sci-lt">{c.listTitle}</b>}<ul>{c.list.map((l) => <li key={l}>{l}</li>)}</ul></>}
+            <p>{R(c.d)}</p>
+            {c.list && <>{c.listTitle && <b className="sci-lt">{c.listTitle}</b>}<ul>{c.list.map((l) => <li key={l}>{R(l)}</li>)}</ul></>}
             {c.table && (
               <div className="tbl-wrap"><table className="plan-table">
                 <thead><tr>{c.table.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
@@ -439,21 +442,21 @@ function Plan({ n }) {
 
       <section className="panel">
         <SecT id="p-goal" title="지도 의도와 목표" />
-        <p className="lead">{T.why}</p>
-        <ul className="check-list">{f(T.goal).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+        <p className="lead">{R(T.why)}</p>
+        <ul className="check-list">{f(T.goal).map((g) => <li key={txt(g)}><Tag x={g} />{R(txt(g))}</li>)}</ul>
       </section>
 
       <div className="grid-2">
         <section className="panel">
           <SecT id="p-prep" title="전날 준비" />
-          <ul>{f(T.prep).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+          <ul>{f(T.prep).map((g) => <li key={txt(g)}><Tag x={g} />{R(txt(g))}</li>)}</ul>
           <Callout tone="safe" title="안전" items={f(T.safety).map(txt)} />
         </section>
         <section className="panel">
           <SecT title="준비물" note="학생 2명 기준" />
           <div className="tbl-wrap"><table className="plan-table">
             <thead><tr><th>품목</th><th>수량</th><th>비고</th></tr></thead>
-            <tbody>{f(T.materials).map((r) => <tr key={r[0] + r[3]}><td><Tag x={r} />{r[0]}</td><td className="nw">{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+            <tbody>{f(T.materials).map((r) => <tr key={r[0] + r[3]}><td><Tag x={r} />{r[0]}</td><td className="nw">{r[1]}</td><td>{R(r[2])}</td></tr>)}</tbody>
           </table></div>
         </section>
       </div>
@@ -466,8 +469,8 @@ function Plan({ n }) {
             return (
               <div key={w} className={'work-' + w + ' link-row'}>
                 <div className="link-c"><b>지난 시간에서</b><p>{x.bridge || '첫 시간입니다. 계획서를 처음 함께 읽습니다.'}</p></div>
-                <div className="link-c now"><b>이번 시간</b><p>{x.mission}</p></div>
-                <div className="link-c"><b>다음 시간으로</b><p>{x.next}</p></div>
+                <div className="link-c now"><b>이번 시간</b><p>{R(x.mission)}</p></div>
+                <div className="link-c"><b>다음 시간으로</b><p>{R(x.next)}</p></div>
               </div>
             )
           })}
@@ -480,7 +483,7 @@ function Plan({ n }) {
         <div className="tbl-wrap"><table className="plan-table flowtbl">
           <thead><tr><th style={{ width: 92 }}>시간</th><th>선생님</th><th>학생</th><th style={{ width: '22%' }}>앱 화면(이 순서로 나옴)</th></tr></thead>
           <tbody>{f(T.flow).map((r, i) => (
-            <tr key={i}><td className="nw"><b style={{ display: 'block' }}>{r[0]}</b><Tag x={r} /></td><td>{r[1]}</td><td>{r[2]}</td>
+            <tr key={i}><td className="nw"><b style={{ display: 'block' }}>{r[0]}</b><Tag x={r} /></td><td>{R(r[1])}</td><td>{R(r[2])}</td>
               <td>{String(r[3] || '').split(', ').filter(Boolean).map((a) => <span key={a} className="app-chip">{a}</span>)}</td></tr>
           ))}</tbody>
         </table></div>
@@ -498,7 +501,7 @@ function Plan({ n }) {
             return (
               <div key={w} className={'work-' + w}>
                 <b className="sub-t">{x.lab.title}</b>
-                <ol>{x.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
+                <ol>{x.lab.guide.map((g) => <li key={g}>{R(g)}</li>)}</ol>
                 <p className="small"><b>눈여겨볼 곳</b> {h.see}</p>
                 <p className="small"><b>진짜 실험과 다른 점</b> {h.real}</p>
               </div>
@@ -506,7 +509,7 @@ function Plan({ n }) {
           })}
           <div>
             <b className="sub-t">지도할 때</b>
-            <ul>{f(T.lab3d || []).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+            <ul>{f(T.lab3d || []).map((g) => <li key={txt(g)}><Tag x={g} />{R(txt(g))}</li>)}</ul>
             <p className="small muted">상자 아래 「사용법」은 손짓과 순서를 다시 보여 주고, 「처음 시점으로」는 돌려 놓은 모형을 되돌리며, 「크게 보기」는 화면 가득 키웁니다.</p>
           </div>
         </div>
@@ -522,7 +525,7 @@ function Plan({ n }) {
         <div className="qa-list">{f(T.ask).map((r, i) => (
           <details key={i} className="qa">
             <summary><Tag x={r} />{r[0]}</summary>
-            <p>{r[1]}</p>
+            <p>{R(r[1])}</p>
           </details>
         ))}</div>
       </section>
@@ -530,14 +533,14 @@ function Plan({ n }) {
       <section className="panel">
         <SecT id="p-sci" title="과학 원리 배경" note="학생 질문에 답하고 결과를 해석할 때" />
         <Science items={sciences} />
-        {notes.map((c) => <Callout key={c.t} tone="info" title={c.t}><p>{c.d}</p></Callout>)}
+        {notes.map((c) => <Callout key={c.t} tone="info" title={c.t}><p>{R(c.d)}</p></Callout>)}
       </section>
 
       <section className="panel">
         <SecT id="p-trouble" title="실험이 안 될 때" />
         <div className="tbl-wrap"><table className="plan-table">
           <thead><tr><th>이럴 때</th><th>흔한 까닭</th><th>이렇게 해 보세요</th></tr></thead>
-          <tbody>{f(T.trouble).map((r) => <tr key={r[0]}><td><Tag x={r} /><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+          <tbody>{f(T.trouble).map((r) => <tr key={r[0]}><td><Tag x={r} /><b>{r[0]}</b></td><td>{R(r[1])}</td><td>{R(r[2])}</td></tr>)}</tbody>
         </table></div>
       </section>
 
@@ -550,24 +553,24 @@ function Plan({ n }) {
         <SecT id="p-assess" title="평가 기준" note="관찰과 앱 기록으로 확인" />
         <div className="tbl-wrap"><table className="plan-table rubric">
           <thead><tr><th>보는 것</th><th>잘함</th><th>보통</th><th>노력 필요</th></tr></thead>
-          <tbody>{f(T.assess).map((r) => <tr key={r[0] + (tagOf(r) || '')}><td><Tag x={r} /><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody>
+          <tbody>{f(T.assess).map((r) => <tr key={r[0] + (tagOf(r) || '')}><td><Tag x={r} /><b>{r[0]}</b></td><td>{R(r[1])}</td><td>{R(r[2])}</td><td>{R(r[3])}</td></tr>)}</tbody>
         </table></div>
       </section>
 
       <div className="grid-2">
         <section className="panel">
           <SecT id="p-diff" title="도움이 필요할 때" />
-          <ul>{f(T.diff.help).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+          <ul>{f(T.diff.help).map((g) => <li key={txt(g)}><Tag x={g} />{R(txt(g))}</li>)}</ul>
         </section>
         <section className="panel">
           <SecT title="더 나아가기" />
-          <ul>{f(T.diff.more).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+          <ul>{f(T.diff.more).map((g) => <li key={txt(g)}><Tag x={g} />{R(txt(g))}</li>)}</ul>
         </section>
       </div>
 
       <section className="panel">
         <SecT title="탐구일지에 남길 것" />
-        <ul className="check-list">{T.journal.map((g) => <li key={g}>{g}</li>)}</ul>
+        <ul className="check-list">{T.journal.map((g) => <li key={g}>{R(g)}</li>)}</ul>
       </section>
     </div>
   )
@@ -589,26 +592,26 @@ function Guide() {
           <SecT id="g-over" title="대회 한눈에 보기" />
           <div className="tbl-wrap"><table className="plan-table">
             <thead><tr><th>날짜</th><th>하는 일</th><th>지도와 관련된 점</th></tr></thead>
-            <tbody>{G.schedule.map((r) => <tr key={r[0]}><td className="nw"><b>{r[0]}</b></td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+            <tbody>{G.schedule.map((r) => <tr key={r[0]}><td className="nw"><b>{r[0]}</b></td><td>{R(r[1])}</td><td>{R(r[2])}</td></tr>)}</tbody>
           </table></div>
           <h3 className="h3">본심사 기준</h3>
           <div className="criteria">{G.criteria.map(([k, v, d]) => (
-            <div key={k} className="crit"><div className="crit-top"><b>{k}</b><span>{v}점</span></div><div className="crit-bar"><i style={{ width: v + '%' }} /></div><p>{d}</p></div>
+            <div key={k} className="crit"><div className="crit-top"><b>{k}</b><span>{v}점</span></div><div className="crit-bar"><i style={{ width: v + '%' }} /></div><p>{R(d)}</p></div>
           ))}</div>
-          <p className="lead" style={{ marginTop: 12 }}>{G.criteriaNote}</p>
+          <p className="lead" style={{ marginTop: 12 }}>{R(G.criteriaNote)}</p>
           <h3 className="h3">12월 12일까지 학생이 할 수 있어야 할 것</h3>
-          <ul className="check-list">{G.goals.map((g) => <li key={g}>{g}</li>)}</ul>
+          <ul className="check-list">{G.goals.map((g) => <li key={g}>{R(g)}</li>)}</ul>
           <h3 className="h3">여섯 차시 계획</h3>
           <div className="tbl-wrap"><table className="plan-table">
             <thead><tr><th>차시</th><th>때</th><th>함께 하는 것</th><th>빗물 건조망 덮개</th><th>테이프 감개</th></tr></thead>
-            <tbody>{G.plan.map((r) => <tr key={r[0]}><td><a href={`#/teacher/plan/${r[0]}`} className="nlink">{r[0]}</a></td><td className="nw">{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td></tr>)}</tbody>
+            <tbody>{G.plan.map((r) => <tr key={r[0]}><td><a href={`#/teacher/plan/${r[0]}`} className="nlink">{r[0]}</a></td><td className="nw">{r[1]}</td><td>{R(r[2])}</td><td>{R(r[3])}</td><td>{R(r[4])}</td></tr>)}</tbody>
           </table></div>
           <p className="small muted" style={{ marginTop: 8 }}>{G.planNote}</p>
         </section>
 
         <section className="panel">
           <SecT id="g-app" title="이 앱을 수업에 쓰는 법" />
-          <div className="kv-list">{G.app.map(([k, v]) => <div key={k}><b>{k}</b><p>{v}</p></div>)}</div>
+          <div className="kv-list">{G.app.map(([k, v]) => <div key={k}><b>{k}</b><p>{R(v)}</p></div>)}</div>
         </section>
 
         <section className="panel">
@@ -616,30 +619,30 @@ function Guide() {
           {['rain', 'tape'].map((w) => (
             <div key={w} className={'work-' + w + ' work-block'}>
               <h3 className="h3"><span className={'chip ' + w}>{WORKS[w].name}</span></h3>
-              <p className="lead">{G.works[w].one}</p>
+              <p className="lead">{R(G.works[w].one)}</p>
               <div className="fig-row">{G.works[w].figs.map((src) => <img key={src} src={src} alt="" loading="lazy" />)}</div>
               <div className="tbl-wrap"><table className="plan-table">
                 <thead><tr><th>숫자</th><th>어디서 나왔나</th></tr></thead>
-                <tbody>{G.works[w].numbers.map((r) => <tr key={r[0]}><td><b>{r[0]}</b></td><td>{r[1]}</td></tr>)}</tbody>
+                <tbody>{G.works[w].numbers.map((r) => <tr key={r[0]}><td><b>{r[0]}</b></td><td>{R(r[1])}</td></tr>)}</tbody>
               </table></div>
             </div>
           ))}
           <h3 className="h3">왜 물 무게로 힘을 잴까</h3>
-          <div className="kv-list">{G.works.water.map(([k, v, w]) => <div key={k}><b><span className={'chip ' + w}>{k}</span></b><p>{v}</p></div>)}</div>
+          <div className="kv-list">{G.works.water.map(([k, v, w]) => <div key={k}><b><span className={'chip ' + w}>{k}</span></b><p>{R(v)}</p></div>)}</div>
           <p className="small muted">과학에서 힘의 단위는 N(뉴턴)이고, 물 100 g의 무게가 약 1 N입니다.</p>
         </section>
 
         <section className="panel">
           <SecT id="g-creative" title="창의 활동 지도" note="차시마다 하나씩" />
-          <p className="lead">{G.creative.intro}</p>
+          <p className="lead">{R(G.creative.intro)}</p>
           <div className="grid-2 inner">
             <div>
               <b className="sub-t">활동의 종류</b>
-              <div className="kv-list">{G.creative.kinds.map(([a, b]) => <div key={a}><b>{a}</b><p>{b}</p></div>)}</div>
+              <div className="kv-list">{G.creative.kinds.map(([a, b]) => <div key={a}><b>{a}</b><p>{R(b)}</p></div>)}</div>
             </div>
             <div>
               <b className="sub-t">이런 점을 봐 주세요</b>
-              <div className="kv-list">{G.creative.look.map(([a, b]) => <div key={a}><b>{a}</b><p>{b}</p></div>)}</div>
+              <div className="kv-list">{G.creative.look.map(([a, b]) => <div key={a}><b>{a}</b><p>{R(b)}</p></div>)}</div>
             </div>
           </div>
           <div className="tbl-wrap" style={{ marginTop: 14 }}><table className="plan-table">
@@ -655,59 +658,63 @@ function Guide() {
 
         <section className="panel">
           <SecT id="g-review" title="복습 모드" />
-          <p className="lead">{G.review.intro}</p>
-          <div className="kv-list">{G.review.modes.map(([a, b]) => <div key={a}><b>{a}</b><p>{b}</p></div>)}</div>
-          <ul className="check-list" style={{ marginTop: 12 }}>{G.review.use.map((t) => <li key={t}>{t}</li>)}</ul>
+          <p className="lead">{R(G.review.intro)}</p>
+          <div className="kv-list">{G.review.modes.map(([a, b]) => <div key={a}><b>{a}</b><p>{R(b)}</p></div>)}</div>
+          <ul className="check-list" style={{ marginTop: 12 }}>{G.review.use.map((t) => <li key={t}>{R(t)}</li>)}</ul>
         </section>
 
         <section className="panel">
           <SecT id="g-resume" title="수업이 끊겼을 때" note="기록은 이렇게 이어집니다" />
-          <ul className="check-list">{G.resume.map((t) => <li key={t}>{t}</li>)}</ul>
+          <ul className="check-list">{G.resume.map((t) => <li key={t}>{R(t)}</li>)}</ul>
         </section>
 
         <section className="panel">
           <SecT id="g-expert" title="전문가 지도 날" />
-          <p className="lead">{G.expert.when}</p>
+          <p className="lead">{R(G.expert.when)}</p>
           <div className="grid-2 inner">
-            <div><h3 className="h3">챙길 것</h3><ul className="check-list">{G.expert.bring.map((g) => <li key={g}>{g}</li>)}</ul></div>
-            <div><h3 className="h3">그날 학생이 할 일</h3><ol>{G.expert.todo.map((g) => <li key={g}>{g}</li>)}</ol></div>
+            <div><h3 className="h3">챙길 것</h3><ul className="check-list">{G.expert.bring.map((g) => <li key={g}>{R(g)}</li>)}</ul></div>
+            <div><h3 className="h3">그날 학생이 할 일</h3><ol>{G.expert.todo.map((g) => <li key={g}>{R(g)}</li>)}</ol></div>
           </div>
           <h3 className="h3">질문 예시</h3>
           <div className="grid-2 inner">
-            {['rain', 'tape'].map((w) => <div key={w}><b className="sub-t"><span className={'chip ' + w}>{WORKS[w].name}</span></b><ul>{G.expert.questions[w].map((q) => <li key={q}>{q}</li>)}</ul></div>)}
+            {['rain', 'tape'].map((w) => <div key={w}><b className="sub-t"><span className={'chip ' + w}>{WORKS[w].name}</span></b><ul>{G.expert.questions[w].map((q) => <li key={q}>{R(q)}</li>)}</ul></div>)}
           </div>
           <h3 className="h3">지도가 끝난 뒤</h3>
-          <ul>{G.expert.after.map((g) => <li key={g}>{g}</li>)}</ul>
+          <ul>{G.expert.after.map((g) => <li key={g}>{R(g)}</li>)}</ul>
         </section>
 
         <section className="panel">
           <SecT id="g-mb" title="마이크로비트 도입 계획" note="전문가 지도 뒤, 빗물 덮개만" />
-          <p className="lead">{G.microbit.intro}</p>
+          <p className="lead">{R(G.microbit.intro)}</p>
           <h3 className="h3">쓰는 곳</h3>
-          <ul>{G.microbit.uses.map((g) => <li key={g}>{g}</li>)}</ul>
+          <ul>{G.microbit.uses.map((g) => <li key={g}>{R(g)}</li>)}</ul>
           <h3 className="h3">살 것</h3>
           <div className="tbl-wrap"><table className="plan-table">
             <thead><tr><th>품목</th><th>수량</th><th>가격</th><th>비고</th></tr></thead>
-            <tbody>{G.microbit.buy.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="nw">{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td></tr>)}</tbody>
+            <tbody>{G.microbit.buy.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="nw">{r[1]}</td><td>{R(r[2])}</td><td>{R(r[3])}</td></tr>)}</tbody>
           </table></div>
           <h3 className="h3">배우는 순서</h3>
           <div className="tbl-wrap"><table className="plan-table">
             <thead><tr><th style={{ width: 90 }}>회</th><th>배울 것</th></tr></thead>
-            <tbody>{G.microbit.steps.map((r) => <tr key={r[0]}><td className="nw"><b>{r[0]}</b></td><td>{r[1]}</td></tr>)}</tbody>
+            <tbody>{G.microbit.steps.map((r) => <tr key={r[0]}><td className="nw"><b>{r[0]}</b></td><td>{R(r[1])}</td></tr>)}</tbody>
           </table></div>
+          <b className="sub-t" style={{ marginTop: 14 }}>국내에서 사는 곳(마이크로비트 V2.21 Go)</b>
+          <ul className="shop-list">
+            {MICROBIT_SHOPS.map(([name, url, memo]) => <li key={url}><a href={url} target="_blank" rel="noreferrer">{name}</a><span>{memo}</span></li>)}
+          </ul>
           <p className="small muted" style={{ marginTop: 8 }}>{G.microbit.note}</p>
         </section>
 
         <section className="panel">
           <SecT id="g-caution" title="지도할 때 주의할 점" />
-          <ul className="caution-list">{G.cautions.map((g) => <li key={g}>{g}</li>)}</ul>
+          <ul className="caution-list">{G.cautions.map((g) => <li key={g}>{R(g)}</li>)}</ul>
         </section>
 
         <section className="panel">
           <SecT id="g-mat" title="준비물 전체 목록" />
           <div className="tbl-wrap"><table className="plan-table">
             <thead><tr><th>품목</th><th>쓰는 차시</th><th>수량</th><th>작품</th></tr></thead>
-            <tbody>{G.materials.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="nw">{r[1]}</td><td>{r[2]}</td><td>{r[3] && <span className={'chip ' + (r[3] === '빗물' ? 'rain' : 'tape')}>{r[3]}</span>}</td></tr>)}</tbody>
+            <tbody>{G.materials.map((r) => <tr key={r[0]}><td>{r[0]}</td><td className="nw">{r[1]}</td><td>{R(r[2])}</td><td>{r[3] && <span className={'chip ' + (r[3] === '빗물' ? 'rain' : 'tape')}>{r[3]}</span>}</td></tr>)}</tbody>
           </table></div>
         </section>
 
@@ -715,7 +722,7 @@ function Guide() {
           <SecT id="g-words" title="계획서의 어려운 말 풀이" note="학생 낱말 사전과 같은 내용" />
           <WordsTable />
           <h3 className="h3">참고한 자료</h3>
-          <ul className="small">{G.refs.map((g) => <li key={g}>{g}</li>)}</ul>
+          <ul className="small">{G.refs.map((g) => <li key={g}>{R(g)}</li>)}</ul>
         </section>
       </div>
     </div>
@@ -727,7 +734,7 @@ function WordsTable() {
   return (
     <div className="tbl-wrap"><table className="plan-table">
       <thead><tr><th>작품</th><th>낱말</th><th>학생에게 이렇게 설명</th><th>차시</th></tr></thead>
-      <tbody>{rows.map((r) => <tr key={r[1]}><td><span className={'chip ' + (r[0] === '빗물' ? 'rain' : r[0] === '테이프' ? 'tape' : 'green')}>{r[0]}</span></td><td className="nw"><b>{r[1]}</b></td><td>{r[2]}</td><td className="nw">{r[3]}</td></tr>)}</tbody>
+      <tbody>{rows.map((r) => <tr key={r[1]}><td><span className={'chip ' + (r[0] === '빗물' ? 'rain' : r[0] === '테이프' ? 'tape' : 'green')}>{r[0]}</span></td><td className="nw"><b>{r[1]}</b></td><td>{R(r[2])}</td><td className="nw">{r[3]}</td></tr>)}</tbody>
     </table></div>
   )
 }
@@ -764,7 +771,7 @@ function Show({ work, n }) {
             <div className="picks">{s.lab.predict.options.map((o) => <span key={o} className="pick" style={{ display: 'inline-flex', alignItems: 'center' }}>{o}</span>)}</div>
           </div>
         )}
-        {s.lab && <ol style={{ paddingLeft: 22, margin: 0 }}>{s.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>}
+        {s.lab && <ol style={{ paddingLeft: 22, margin: 0 }}>{s.lab.guide.map((g) => <li key={g}>{R(g)}</li>)}</ol>}
         <div className="stack" style={{ gap: 8 }}>
           {asks.map(([q, a], i) => (
             <button key={q} onClick={() => setOpen({ ...open, [i]: !open[i] })} aria-expanded={!!open[i]}

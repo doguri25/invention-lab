@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../lib/store'
 import { fmt } from '../lib/physics'
+import { rich } from '../lib/rich'
 import { IdeaList, Fig, Pic } from './extra'
 
 const STATE = { done: '다 했어요', half: '하는 중' }
@@ -22,7 +23,7 @@ export function Talk({ work, expr = 'smile', text }) {
   return (
     <div className="talk">
       <img src={`/icons/mascot-${work}-${expr}.svg`} alt={work === 'rain' ? '안내 캐릭터 똑이' : '안내 캐릭터 돌돌이'} />
-      <p className="bubble">{text}</p>
+      <p className="bubble">{rich(text)}</p>
     </div>
   )
 }
@@ -177,8 +178,8 @@ export function Learn({ items }) {
             {c.img && <Pic src={c.img} alt={c.t} className="learn-img" />}
             <div className="learn-body">
               <h3>{c.t}</h3>
-              <p>{c.d}</p>
-              {c.ex && <p className="learn-ex">{c.ex}</p>}
+              <p>{rich(c.d)}</p>
+              {c.ex && <p className="learn-ex">{rich(c.ex, { kw: false })}</p>}
             </div>
           </div>
         </article>
@@ -193,7 +194,7 @@ export function Callout({ tone = 'info', title, items, children }) {
   return (
     <aside className={'callout ' + tone} aria-label={title}>
       <b className="callout-t">{title}</b>
-      {items && <ul>{items.map((t) => <li key={t}>{t}</li>)}</ul>}
+      {items && <ul>{items.map((t) => <li key={t}>{rich(t)}</li>)}</ul>}
       {children}
     </aside>
   )
@@ -208,7 +209,7 @@ export function Think({ item, data = {}, onChange, readOnly, work }) {
         <p className="quiz-q">{item.q}</p>
         {readOnly ? <p>{v || '·'}</p> : <Picks options={item.options} value={v} onChange={(o) => onChange(item.id, o)} answer={item.answer} reveal={!!v} />}
         {v && item.answer && !readOnly && (
-          <p className={'fb ' + (v === item.answer ? 'ok' : 'no')}>{v === item.answer ? (item.why || '좋아요!') : '실험 결과를 다시 떠올려 볼까요?'}</p>
+          <p className={'fb ' + (v === item.answer ? 'ok' : 'no')}>{v === item.answer ? rich(item.why || '좋아요!') : '실험 결과를 다시 떠올려 볼까요?'}</p>
         )}
         <textarea className="field" style={{ marginTop: 10, minHeight: 64 }} placeholder="그렇게 생각한 까닭" aria-label={item.q + ' 까닭'}
           value={data[item.id + '_why'] || ''} onChange={(e) => onChange(item.id + '_why', e.target.value)} readOnly={readOnly} />
@@ -304,7 +305,7 @@ export function Quiz({ items, data = {}, onChange }) {
                 return <button key={o} type="button" className={cls} aria-pressed={v === j} onClick={() => onChange('quiz' + i, j)}>{o}</button>
               })}
             </div>
-            {v !== undefined && <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '맞았어요. ' : '다시 생각해 봐요. '}{q.why}</p>}
+            {v !== undefined && <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '맞았어요. ' : '다시 생각해 봐요. '}{rich(q.why)}</p>}
           </div>
         )
       })}

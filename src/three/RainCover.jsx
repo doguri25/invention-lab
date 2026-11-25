@@ -8,6 +8,12 @@ const X0 = -1.2 // 덮개가 묶인 쪽
 const XO = -0.82 // 열렸을 때 앞막대
 const XC = 1.12 // 닫혔을 때 앞막대
 const TOP = 1.0
+const BX = 1.38 // 물병이 매달린 곳
+const HY = 0.035 // 물병 바닥에서 물구멍까지 높이
+const BH = 0.36 // 물병 높이(2 L 병)
+const BY0 = 0.52 // 덮개가 열렸을 때 물병 바닥 높이. 병 입구가 도르래보다 아래에 온다
+const FALL = 0.18 // 덮개가 움직인 거리 가운데 물병이 오르내리는 만큼(보기 좋게 줄여 그림)
+const ROD = BY0 - (XC - XO) * FALL + 0.029 // 받침 막대 높이: 물병이 맨 아래일 때 집게 손잡이에 닿는다
 
 function Pleats({ xf }) {
   const N = 14, P = 0.2
@@ -53,7 +59,7 @@ function Rain({ rate }) {
   )
 }
 
-function Drips({ on, x, y }) {
+function Drips({ on, x, y, z = 0 }) {
   const ref = useRef()
   const N = 10
   const st = useMemo(() => Array.from({ length: N }, (_, i) => i / N), [])
@@ -64,7 +70,7 @@ function Drips({ on, x, y }) {
     mesh.visible = on
     for (let i = 0; i < N; i++) {
       st[i] = (st[i] + dt * 1.6) % 1
-      m.makeTranslation(x, y - st[i] * y, 0)
+      m.makeTranslation(x, y - st[i] * st[i] * y, z)
       mesh.setMatrixAt(i, m)
     }
     mesh.instanceMatrix.needsUpdate = true
@@ -89,9 +95,11 @@ function Peppers() {
 
 export function RainCoverModel({ c = 0, water = 0, rate = 0, draining = false, labels = false, onPart, highlight }) {
   const xf = XO + (XC - XO) * c
-  const drop = (xf - XO) * 0.22
-  const by = 0.62 - drop // 물병 바닥 높이
+  const drop = (xf - XO) * FALL
+  const by = BY0 - drop // 물병 바닥 높이
   const wy = 0.25 + drop // 평형추 바닥 높이
+  // 물병이 거의 다 내려오면(끝 6%) 받침 막대가 집게 손잡이에 닿아 물구멍이 열린다
+  const open = Math.min(1, Math.max(0, (c - 0.94) / 0.06))
   const hit = (id) => (e) => { if (onPart) { e.stopPropagation(); onPart(id) } }
   const em = (id) => (highlight === id ? '#ffb300' : '#000000')
   const posts = [[-1.2, -0.8], [-1.2, 0.8], [1.2, -0.8], [1.2, 0.8], [0, -0.8], [0, 0.8]]
@@ -155,23 +163,50 @@ export function RainCoverModel({ c = 0, water = 0, rate = 0, draining = false, l
           </mesh>
         </group>
       ))}
-      <Rope points={[[xf + 0.04, TOP + 0.02, 0], [1.32, TOP + 0.08, 0], [1.38, TOP + 0.02, 0], [1.38, by + 0.47, 0]]} />
+      <Rope points={[[xf + 0.04, TOP + 0.02, 0], [1.32, TOP + 0.08, 0], [1.38, TOP + 0.02, 0], [1.38, by + BH + 0.05, 0]]} />
       <Rope points={[[xf - 0.04, TOP + 0.02, 0], [-1.32, TOP + 0.08, 0], [-1.38, TOP + 0.02, 0], [-1.38, wy + 0.2, 0]]} />
       {/* 물병 */}
       <group onClick={hit('bottle')}>
-        <Bottle position={[1.38, by, 0]} r={0.09} h={0.45} fill={Math.min(1, water / RAIN.bottleMax)} />
-        {highlight === 'bottle' && <mesh position={[1.38, by + 0.22, 0]}><sphereGeometry args={[0.2, 16, 12]} /><meshBasicMaterial color="#ffb300" transparent opacity={0.25} /></mesh>}
+        <Bottle position={[BX, by, 0]} r={0.08} h={BH} fill={Math.min(1, water / RAIN.bottleMax)} />
+        {highlight === 'bottle' && <mesh position={[BX, by + BH / 2, 0]}><sphereGeometry args={[0.2, 16, 12]} /><meshBasicMaterial color="#ffb300" transparent opacity={0.25} /></mesh>}
       </group>
-      {/* 물구멍과 받침 */}
-      <mesh position={[1.38, 0.08, 0]} onClick={hit('hole')}>
-        <boxGeometry args={[0.24, 0.16, 0.24]} />
-        <meshStandardMaterial color="#cfd8dc" emissive={em('hole')} emissiveIntensity={0.6} />
-      </mesh>
-      <mesh position={[1.29, 0.2, 0]} rotation={[0, 0, 0.5]} onClick={hit('hole')}>
-        <boxGeometry args={[0.08, 0.02, 0.04]} />
-        <meshStandardMaterial color={C.orange} />
-      </mesh>
-      <Drips on={draining} x={1.38} y={Math.max(0.17, by)} />
+      {/* 물구멍: 물병 아래쪽에 달려 물병과 함께 오르내린다. 빨래집게가 막고 있다가 물병이 맨 아래로 오면 받침 막대가 집게 손잡이를 밀어 올려 열린다 */}
+      <group position={[BX, by, 0]} onClick={hit('hole')}>
+        {/* 구멍에 끼운 짧은 대롱 */}
+        <mesh position={[0, HY, 0.13]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} />
+          <meshStandardMaterial color="#eceff1" roughness={0.3} emissive={em('hole')} emissiveIntensity={0.6} />
+        </mesh>
+        <mesh position={[0, HY, 0.181]}>
+          <circleGeometry args={[0.007, 12]} />
+          <meshBasicMaterial color={open > 0.5 ? C.water : '#202124'} />
+        </mesh>
+        {/* 빨래집게: 위쪽 팔은 물병에 붙어 있고 아래쪽 팔만 움직인다 */}
+        <group position={[-0.07, HY, 0.135]}>
+          <group rotation={[0, 0, -0.16]}>
+            <mesh position={[-0.01, 0.012, 0]} castShadow><boxGeometry args={[0.19, 0.014, 0.026]} /><meshStandardMaterial color={C.orange} roughness={0.6} emissive={em('hole')} emissiveIntensity={0.6} /></mesh>
+          </group>
+          <group rotation={[0, 0, 0.16 - 0.3 * open]}>
+            <mesh position={[-0.01, -0.012, 0]} castShadow><boxGeometry args={[0.19, 0.014, 0.026]} /><meshStandardMaterial color={C.orange} roughness={0.6} emissive={em('hole')} emissiveIntensity={0.6} /></mesh>
+          </group>
+          <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.012, 0.012, 0.032, 10]} /><meshStandardMaterial color={C.steel} metalness={0.6} roughness={0.3} /></mesh>
+        </group>
+        {/* 누르기 쉽게 넉넉한 투명 영역 */}
+        <mesh position={[-0.05, HY, 0.14]}><sphereGeometry args={[0.12, 12, 10]} /><meshBasicMaterial transparent opacity={highlight === 'hole' ? 0.25 : 0} color="#ffb300" depthWrite={false} /></mesh>
+      </group>
+      {/* 받침 막대(바닥에 고정) */}
+      <group onClick={hit('hole')}>
+        <mesh position={[BX - 0.175, ROD / 2, 0.135]} castShadow>
+          <cylinderGeometry args={[0.012, 0.012, ROD, 10]} />
+          <meshStandardMaterial color={C.woodDeep} roughness={0.8} emissive={em('hole')} emissiveIntensity={0.4} />
+        </mesh>
+        <mesh position={[BX - 0.175, 0.012, 0.135]} receiveShadow>
+          <boxGeometry args={[0.14, 0.024, 0.14]} />
+          <meshStandardMaterial color="#cfd8dc" />
+        </mesh>
+      </group>
+      {draining && open > 0.5 && <mesh position={[BX, 0.004, 0.2]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[0.09, 20]} /><meshBasicMaterial color={C.water} transparent opacity={0.45} /></mesh>}
+      <Drips on={draining && open > 0.5} x={BX} y={by + HY} z={0.185} />
       {/* 받이판 */}
       <group onClick={hit('plate')}>
         <mesh position={[1.9, 1.32, 0]} castShadow>
@@ -186,7 +221,7 @@ export function RainCoverModel({ c = 0, water = 0, rate = 0, draining = false, l
         ))}
         {water > 0 && <mesh position={[1.9, 1.34, 0]}><boxGeometry args={[0.56, 0.006, 0.56]} /><meshBasicMaterial color={C.water} transparent opacity={Math.min(0.5, rate / 40 + 0.1)} /></mesh>}
       </group>
-      <Rope points={[[1.9, 1.3, 0], [1.65, 1.1, 0], [1.42, by + 0.5, 0]]} color="#90caf9" radius={0.012} />
+      <Rope points={[[1.9, 1.3, 0], [1.65, 1.1, 0], [BX + 0.03, by + BH + 0.06, 0]]} color="#90caf9" radius={0.012} />
       {/* 평형추 */}
       <mesh position={[-1.38, wy + 0.1, 0]} castShadow onClick={hit('weight')}>
         <sphereGeometry args={[0.13, 20, 16]} />
@@ -199,8 +234,8 @@ export function RainCoverModel({ c = 0, water = 0, rate = 0, draining = false, l
       <Label visible={labels} n={3} position={[XO - 0.07, TOP + 0.2, 0.85]}>열림 쪽 자석</Label>
       <Label visible={labels} n={4} position={[XC + 0.07, TOP + 0.2, 0.85]}>닫힘 쪽 자석</Label>
       <Label visible={labels} n={5} position={[1.9, 1.52, 0]}>받이판</Label>
-      <Label visible={labels} n={6} position={[1.6, by + 0.25, 0.25]}>물병</Label>
-      <Label visible={labels} n={7} position={[1.6, 0.12, 0.3]}>물구멍</Label>
+      <Label visible={labels} n={6} position={[BX + 0.22, by + BH * 0.6, 0.2]}>물병</Label>
+      <Label visible={labels} n={7} position={[BX + 0.03, by - 0.03, 0.2]}>물구멍</Label>
       <Label visible={labels} n={8} position={[-1.38, wy + 0.38, 0]}>평형추</Label>
     </group>
   )
