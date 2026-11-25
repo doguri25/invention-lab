@@ -33,7 +33,12 @@ async function rpc(fn, body) {
     try { const j = JSON.parse(text); code = (j.message || '').trim() } catch (e) { /* 빈 응답 */ }
     throw new ApiError(code, MESSAGES[code] || '잠시 문제가 생겼어요. 다시 해 보세요.')
   }
-  return text ? JSON.parse(text) : null
+  const out = text ? JSON.parse(text) : null
+  // 비밀번호 오류 등은 함수가 {error: 'CODE'}로 돌려준다(틀린 횟수가 저장되도록)
+  if (out && typeof out === 'object' && !Array.isArray(out) && out.error) {
+    throw new ApiError(out.error, MESSAGES[out.error] || '잠시 문제가 생겼어요. 다시 해 보세요.')
+  }
+  return out
 }
 
 export const api = {

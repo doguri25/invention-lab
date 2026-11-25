@@ -44,10 +44,10 @@ function Login({ onOk }) {
         <div className="row"><img src="/favicon.svg" alt="" width="44" /><h1 className="display" style={{ fontSize: '1.7em' }}>선생님 화면</h1></div>
         <p className="muted">학생 기록을 보고 도장을 찍는 화면이에요. 선생님 비밀번호를 넣어 주세요.</p>
         <input className="field" type="password" inputMode="numeric" autoComplete="current-password" value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="숫자 6~12자리" aria-label="선생님 비밀번호" style={{ letterSpacing: 6, fontWeight: 800 }} />
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="숫자 4~12자리" aria-label="선생님 비밀번호" style={{ letterSpacing: 6, fontWeight: 800 }} />
         {msg && <p className="fb no" role="alert">{msg}</p>}
         <div className="row">
-          <button className="btn" disabled={pin.length < 6 || busy}>{busy ? '확인하는 중' : '열기'}</button>
+          <button className="btn" disabled={pin.length < 4 || busy}>{busy ? '확인하는 중' : '열기'}</button>
           <a className="btn ghost" href="#/">학생 화면으로</a>
         </div>
       </form>
@@ -403,7 +403,7 @@ function Settings({ pin, onPin }) {
   const [a, setA] = useState('')
   const [b, setB] = useState('')
   const [msg, setMsg] = useState('')
-  const ok = a.length >= 6 && a === b
+  const ok = a.length >= 4 && a === b
   const save = async () => {
     try { await api.teacher.setPin(pin, a); keepPin(a); onPin(a); setA(''); setB(''); setMsg('바꿨어요. 다음부터 새 비밀번호로 열어요.') } catch (e) { setMsg(tmsg(e)) }
   }
@@ -412,7 +412,7 @@ function Settings({ pin, onPin }) {
       <h1 className="display" style={{ fontSize: '1.7em' }}>설정</h1>
       <section className="panel stack">
         <div className="sec-t" style={{ marginBottom: 0 }}><h2>선생님 비밀번호 바꾸기</h2></div>
-        <input className="field" type="password" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="새 비밀번호(숫자 6~12자리)" aria-label="새 비밀번호" />
+        <input className="field" type="password" inputMode="numeric" value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="새 비밀번호(숫자 4~12자리)" aria-label="새 비밀번호" />
         <input className="field" type="password" inputMode="numeric" value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="한 번 더" aria-label="새 비밀번호 확인" />
         {b && a !== b && <p className="small" style={{ color: 'var(--red)' }}>두 번 적은 숫자가 달라요.</p>}
         <button className="btn" disabled={!ok} onClick={save} style={{ alignSelf: 'flex-start' }}>바꾸기</button>
