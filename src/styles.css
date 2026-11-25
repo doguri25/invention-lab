@@ -451,7 +451,7 @@ body.lab-full .dock { display: none; }
 .wave svg { position: absolute; inset: 3px 0; width: 100%; height: 28px; overflow: visible; }
 .wave-track, .wave-fill { fill: none; stroke-width: 6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .wave-track { stroke: var(--pt); }
-.wave-fill { stroke: var(--p); transition: stroke-dasharray .6s var(--spring); }
+.wave-fill { stroke: var(--p); transition: clip-path .6s ease-out; }
 .wave-rider { position: absolute; top: -9px; width: 40px; height: 40px; margin-left: -20px; transition: left .6s var(--spring); filter: drop-shadow(0 2px 3px rgba(31, 41, 64, .25)); animation: bob 2.4s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(-4px) rotate(4deg); } }
 

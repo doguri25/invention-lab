@@ -84,8 +84,8 @@ export function Wave({ value = 0, work, label }) {
   return (
     <div className="wave" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(v * 100)} aria-label={label || '한 만큼'}>
       <svg viewBox="0 0 304 28" preserveAspectRatio="none" aria-hidden="true">
-        <path d={d} pathLength="1" className="wave-track" />
-        <path d={d} pathLength="1" className="wave-fill" style={{ strokeDasharray: `${v} 1` }} />
+        <path d={d} className="wave-track" />
+        <path d={d} className="wave-fill" style={{ clipPath: `inset(-20px ${100 - v * 100}% -20px -20px)` }} />
       </svg>
       {work && <img className="wave-rider" src={`/icons/mascot-${work}-smile.svg`} alt="" style={{ left: `calc(${v * 100}% * 0.94 + 3%)` }} />}
     </div>

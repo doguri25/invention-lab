@@ -24,7 +24,7 @@ export default function Home() {
   // 이어서 할 곳: 마지막에 보던 곳이 있으면 거기, 없으면 아직 덜 한 첫 차시
   const open = list.find((s, i) => prog[i] < 0.8) || list[list.length - 1]
   const lastS = last && list[last.n - 1]
-  const go = lastS && prog[last.n - 1] < 0.8 ? { s: lastS, sec: last.sec } : { s: open, sec: firstOpen(open, records[open.key], records['k' + open.n]) }
+  const go = lastS && prog[last.n - 1] < 0.8 ? { s: lastS, sec: last.sec } : { s: open, sec: prog[open.n - 1] > 0 ? firstOpen(open, records[open.key], records['k' + open.n]) : 'mission' }
   const started = prog.some((p) => p > 0) || !!last
   const wrong = list.reduce((a, s) => a + s.quiz.filter((q, i) => { const v = (records[s.key] || {})['quiz' + i]; return v !== undefined && v !== q.answer && !((records.review || {}).fixed || {})[`${s.key}:${i}`] }).length, 0)
   const Lab = user.work === 'rain' ? RainLab : TapeLab
@@ -63,8 +63,8 @@ export default function Home() {
         <div className="sec-t"><h2 id="map-t">탐구 지도</h2><span className="note">한 칸을 마치면 선생님이 도장을 찍어 줘요</span></div>
         <div className="path">
           <svg className="path-line" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0 36 C 60 36 60 36 100 36 S 220 84 300 84 S 420 36 500 36 S 620 84 700 84 S 820 36 900 36 S 1020 84 1100 84 S 1160 84 1200 84" pathLength="1" className="wave-track" />
-            <path d="M0 36 C 60 36 60 36 100 36 S 220 84 300 84 S 420 36 500 36 S 620 84 700 84 S 820 36 900 36 S 1020 84 1100 84 S 1160 84 1200 84" pathLength="1" className="wave-fill" style={{ strokeDasharray: `${Math.min(1, (prog.filter((p) => p >= 0.8).length + 0.5) / 6)} 1` }} />
+            <path d="M0 36 C 60 36 60 36 100 36 S 220 84 300 84 S 420 36 500 36 S 620 84 700 84 S 820 36 900 36 S 1020 84 1100 84 S 1160 84 1200 84" className="wave-track" />
+            <path d="M0 36 C 60 36 60 36 100 36 S 220 84 300 84 S 420 36 500 36 S 620 84 700 84 S 820 36 900 36 S 1020 84 1100 84 S 1160 84 1200 84" className="wave-fill" style={{ clipPath: `inset(-20px ${100 - Math.min(100, ((go.s.n - 0.5) / 6) * 100)}% -20px -20px)` }} />
           </svg>
           {list.map((s, i) => {
             const fb = feedback[s.key]
