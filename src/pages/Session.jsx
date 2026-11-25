@@ -1,41 +1,299 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/store'
-import { SESSIONS, WORKS } from '../data/content'
-import { Section, Talk, Tools, Steps, Picks, RecordTable, Stairs, Think, Quiz, LineChart, Learn, Callout } from '../components/ui'
-import { LabSwitch } from '../labs'
+import { SESSIONS } from '../data/content'
+import { sequence, blockName, blockShort } from '../data/blocks'
+import { blockState, sessionProgress, thinkItems, firstOpen } from '../lib/progress'
+import { Section, Talk, Tools, Picks, RecordTable, Stairs, Think, Quiz, LineChart, Learn, Callout, avgOf } from '../components/ui'
+import { StepList, Fig, Create, BarChart, Wave, Cookie, Stamp, useNarrow } from '../components/extra'
+import { LabFrame } from '../labs/LabFrame'
+import { fmt } from '../lib/physics'
 
-function Predict({ p, data, set }) {
-  if (!p) return null
-  const v = data.predict
+const idOf = (t) => 'b-' + t.replace(':', '-')
+const calm = () => document.documentElement.dataset.motion === '0' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const scrollToBlock = (t, smooth = true) => {
+  const el = document.getElementById(idOf(t))
+  if (el) el.scrollIntoView({ behavior: smooth && !calm() ? 'smooth' : 'auto', block: 'start' })
+}
+
+/* 지난 시간 돌아보기 */
+function Recall({ s, prev, data, set, records, work }) {
+  const pd = records[prev.key] || {}
+  const qi = useMemo(() => {
+    if (data.recallqi !== undefined) return data.recallqi
+    const wrong = prev.quiz.findIndex((q, i) => pd['quiz' + i] !== undefined && pd['quiz' + i] !== q.answer)
+    return wrong >= 0 ? wrong : s.n % prev.quiz.length
+  }, [s.key]) // eslint-disable-line
+  const q = prev.quiz[qi]
+  const v = data.recallq
+  const rows = (s.recall || []).map((r) => ({ ...r, v: avgOf(records[r.from], r.id) }))
   return (
-    <div className="predict">
-      <p className="quiz-q">먼저 예상해 봐요. {p.q}</p>
-      <Picks options={p.options} value={v} onChange={(o) => set('predict', o)} />
-      {v && <p className="small" style={{ marginTop: 8 }}>예상을 적었어요. 이제 실험실에서 확인해 봐요. 결과가 달라도 괜찮아요. 왜 다른지 찾는 것이 탐구예요.</p>}
-    </div>
+    <>
+      <Talk work={work} expr="think" text={s.bridge} />
+      <div className="recall-grid">
+        <div className="recall-card">
+          <b>{prev.n}차시에 내가 쓴 한 줄</b>
+          {pd.oneline ? <p className="recall-line">{pd.oneline}</p> : <p className="muted">아직 비어 있어요. <a href={`#/s/${prev.n}/end`}>{prev.n}차시 마무리에 적으러 가기</a></p>}
+        </div>
+        {rows.map((r) => (
+          <div className="recall-card" key={r.from + r.id}>
+            <b>{r.label}</b>
+            {Number.isFinite(r.v)
+              ? <p className="recall-num">{fmt(r.v, 1)} <small>{r.unit}</small>{r.mul && <span className="recall-mul">{r.mulLabel} {fmt(r.v * r.mul, 1)} {r.unit}</span>}</p>
+              : <p className="muted">아직 재지 않았어요. <a href={`#/s/${r.from.slice(1)}/record`}>{r.from.slice(1)}차시 기록표 보기</a></p>}
+          </div>
+        ))}
+      </div>
+      <div className="recall-q">
+        <p className="quiz-q">기억나나요? {q.q}</p>
+        <div className="picks">
+          {q.options.map((o, j) => (
+            <button key={o} type="button" className={'pick' + (v === j ? (j === q.answer ? ' right' : ' wrong') : '')} aria-pressed={v === j}
+              onClick={() => { if (data.recallqi === undefined) set('recallqi', qi); set('recallq', j) }}>{o}</button>
+          ))}
+        </div>
+        {v !== undefined && <p className={'fb ' + (v === q.answer ? 'ok' : 'no')}>{v === q.answer ? '잘 기억하고 있어요. ' : '다시 떠올려 봐요. '}{q.why}</p>}
+      </div>
+    </>
+  )
+}
+
+/* 6차시: 내 실험 돌아보기 */
+function Recap({ list, records, data, set }) {
+  return (
+    <>
+      <p className="muted" style={{ marginBottom: 12 }}>다섯 번 동안 한 일을 한눈에 봐요. 비어 있는 칸은 그 차시로 가서 채울 수 있어요.</p>
+      <ol className="recap">
+        {list.slice(0, 5).map((x) => {
+          const d = records[x.key] || {}
+          const nums = x.record ? x.record.rows.filter((r) => !r.text).slice(0, 3).map((r) => [r.label, avgOf(d, r.id, x.record.cols.length)]).filter((r) => Number.isFinite(r[1])) : []
+          return (
+            <li key={x.key}>
+              <a className="recap-n" href={`#/s/${x.n}`} aria-label={`${x.n}차시로 가기`}>{x.n}</a>
+              <div>
+                <b>{x.title}</b>
+                <p className={d.oneline ? '' : 'muted'}>{d.oneline || '한 줄이 아직 비어 있어요.'}</p>
+                {nums.length > 0 && <p className="small recap-nums">{nums.map(([l, v]) => <span key={l}>{l} <b>{fmt(v, 1)} {x.record.unit}</b></span>)}</p>}
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      <label className="stack" style={{ gap: 6, marginTop: 14 }}>
+        <b>가장 기억에 남는 실험과 까닭</b>
+        <textarea className="field" style={{ minHeight: 72 }} value={data.recap || ''} onChange={(e) => set('recap', e.target.value)} placeholder="1분 설명의 넷째 칸에 쓸 이야기가 돼요" />
+      </label>
+    </>
   )
 }
 
 function DrainGraph({ data }) {
   const ys = [250, 200, 150, 100], rows = ['t250', 't200', 't150', 't100'], col = ['#1a73e8', '#e8710a', '#188038']
   const series = [0, 1, 2].map((j) => ({ name: '병 ' + 'ABC'[j], color: col[j], pts: [[0, 300], ...rows.map((r, i) => [parseFloat(data[`${r}_${j}`]), ys[i]]).filter(([x]) => Number.isFinite(x))] }))
-  const xMax = Math.max(60, ...series.flatMap((s) => s.pts.map((p) => p[0])))
+  const n = series.reduce((a, x) => a + x.pts.length - 1, 0)
+  const xMax = Math.max(60, ...series.flatMap((x) => x.pts.map((p) => p[0])))
   return (
-    <div style={{ marginTop: 14 }}>
-      <p className="quiz-q">기록표로 그린 그래프</p>
+    <div className="graph">
+      <p className="quiz-q">기록표로 그린 꺾은선그래프</p>
+      {n === 0 && <p className="small muted">기록표에 시간을 적으면 점이 찍히고 선으로 이어져요.</p>}
       <LineChart series={series} xMax={Math.ceil(xMax / 30) * 30} yMax={300} xLabel="시간(초)" yLabel="남은 물(mL)" />
-      <div className="row small">{series.map((s) => <span key={s.name} style={{ color: s.color, fontWeight: 700 }}>● {s.name}</span>)}</div>
+      <div className="row small">{series.map((x) => <span key={x.name} style={{ color: x.color, fontWeight: 700 }}>● {x.name}</span>)}</div>
     </div>
   )
 }
 
-function Speech({ s, data, set }) {
+function BandGraph({ data, records }) {
+  const a180 = avgOf(records.s3, 'a180')
+  const bars = ['b1', 'b2', 'b3'].map((id, i) => ({ name: `고무줄 ${i + 1}개`, v: avgOf(data, id), color: '#e8710a' }))
+  return (
+    <div className="graph">
+      <p className="quiz-q">기록표로 그린 막대그래프</p>
+      {!bars.some((b) => Number.isFinite(b.v)) && <p className="small muted">기록표에 무게를 적으면 막대가 올라가요.</p>}
+      <BarChart bars={bars} unit="g" refs={[{ name: '진짜 테이프를 벗기는 힘', v: Number.isFinite(a180) ? a180 * 4.8 : NaN, color: '#188038' }]} />
+      <p className="small muted">초록 점선은 3차시에 잰 180° 평균에 4.8을 곱한 값이에요. 막대가 이 선보다 조금 높은 고무줄 개수를 찾아요.</p>
+    </div>
+  )
+}
+
+const BRING = ['계획서', '탐구일지', '이 앱의 기록(인쇄)', '실험 사진·영상', '실험에 쓴 도구 한두 개', '질문 목록', '필기구']
+
+/* 위쪽에 붙어 다니는 구역 줄 */
+function Strip({ seq, s, states, active, work, value }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current && ref.current.querySelector('[aria-current="true"]')
+    if (el && ref.current) ref.current.scrollTo({ left: el.offsetLeft - ref.current.clientWidth / 2 + el.clientWidth / 2, behavior: calm() ? 'auto' : 'smooth' })
+  }, [active])
+  return (
+    <div className="strip no-print">
+      <Wave value={value} work={work} label={`${s.n}차시를 ${Math.round(value * 100)}% 했어요`} />
+      <nav ref={ref} className="strip-row" aria-label="이 차시의 구역">
+        {seq.map((t) => (
+          <button key={t} type="button" className={'sb ' + states[t]} aria-current={active === t ? 'true' : undefined} onClick={() => scrollToBlock(t)}
+            aria-label={`${blockShort(t, s)}${states[t] === 'done' ? ', 다 했어요' : states[t] === 'half' ? ', 하는 중' : ''}`}>
+            <i aria-hidden="true" />{blockShort(t, s)}
+          </button>
+        ))}
+      </nav>
+    </div>
+  )
+}
+
+export default function Session({ n, sec }) {
+  const user = useApp((st) => st.user)
+  const work = user.work
+  const list = SESSIONS[work]
+  const s = list[Math.min(5, Math.max(0, n - 1))]
+  const records = useApp((st) => st.records)
+  const data = records[s.key] || {}
+  const sk = records['k' + s.n] || {}
+  const fb = useApp((st) => st.feedback[s.key])
+  const setField = useApp((st) => st.setField)
+  const setLast = useApp((st) => st.setLast)
+  const last = useApp((st) => st.last)
+  const set = (k, v) => setField(s.key, k, v)
+  const setSk = (k, v) => setField('k' + s.n, k, v)
+  const narrow = useNarrow('(max-width: 1099px)') // 가로가 좁으면 3D 상자를 구역 안에 넣는다
+  const [tipsOpen, setTipsOpen] = useState(false)
   const [peek, setPeek] = useState(false)
   const [flip, setFlip] = useState({})
-  const bring = ['계획서', '탐구일지', '이 앱의 기록(인쇄)', '실험 사진·영상', '실험에 쓴 도구 한두 개', '질문 목록', '필기구']
-  return (
-    <>
-      <Section n="✎" title="1분 설명 원고" note="외우지 말고 내 말로">
+  const [active, setActive] = useState('mission')
+  const seq = useMemo(() => sequence(s), [s])
+  const states = {}
+  seq.forEach((t) => { states[t] = blockState(t, s, data, sk) })
+  const value = sessionProgress(s, data)
+  const prev = s.n > 1 ? list[s.n - 2] : null
+  const speechParts = (s.speech || []).map((p) => ({ label: p.label, text: data[p.id] }))
+  // 들어왔을 때 지난번에 하던 곳(이 화면에 처음 들어온 순간의 값만 쓴다)
+  const resume = useRef(null)
+  if (resume.current === null) resume.current = last && last.n === s.n && last.sec !== 'mission' && seq.includes(last.sec) ? last.sec : ''
+  const [showResume, setShowResume] = useState(!sec && !!resume.current)
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    if (sec && seq.includes(sec)) {
+      // 그림이 늦게 떠서 자리가 밀릴 수 있어 몇 번 다시 맞춘다. 손을 대면 그만둔다.
+      let stop = false
+      const quit = () => { stop = true }
+      const ids = [80, 450, 1100, 2000].map((ms) => setTimeout(() => { if (!stop) scrollToBlock(sec, false) }, ms))
+      const evs = ['wheel', 'touchstart', 'keydown', 'pointerdown']
+      evs.forEach((e) => window.addEventListener(e, quit, { passive: true }))
+      return () => { ids.forEach(clearTimeout); evs.forEach((e) => window.removeEventListener(e, quit)) }
+    }
+  }, [s.key, sec]) // eslint-disable-line
+
+  // 지금 보고 있는 구역을 기억해 둔다
+  useEffect(() => {
+    const els = seq.map((t) => document.getElementById(idOf(t))).filter(Boolean)
+    if (!('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver((ents) => {
+      const hit = ents.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+      if (hit) setActive(hit.target.dataset.block)
+    }, { rootMargin: '-22% 0px -62% 0px' })
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [s.key, narrow]) // eslint-disable-line
+  useEffect(() => { if (active !== 'mission') setLast(s.n, active) }, [active]) // eslint-disable-line
+
+  const lab = s.lab && (
+    <LabFrame sim={s.lab.sim} work={work} speechParts={speechParts} guide={s.lab.guide} title={s.lab.title} />
+  )
+  let firstSteps = true
+  let num = 0
+  const sect = (t, props, children) => (
+    <Section key={t} n={++num} id={idOf(t)} title={props.title || blockName(t, s)} note={props.note} state={states[t]} block={t}>{children}</Section>
+  )
+
+  const render = (t) => {
+    if (t.startsWith('think:')) {
+      const it = s.think.find((x) => x.id === t.slice(6))
+      return sect(t, { note: '도구 없이 손으로 먼저' }, <Think item={it} data={data} onChange={set} work={work} />)
+    }
+    switch (t) {
+      case 'mission': return sect(t, { title: '오늘의 미션' }, <>
+        <Talk work={work} expr={s.n === 6 ? 'wow' : 'smile'} text={s.bubble} />
+        <p className="mission">{s.mission}</p>
+        <p className="small muted" style={{ margin: '14px 0 8px' }}>오늘 준비물</p>
+        <Tools items={s.tools} />
+      </>)
+      case 'recall': return sect(t, { note: '2분이면 돼요' }, <Recall s={s} prev={prev} data={data} set={set} records={records} work={work} />)
+      case 'learn': return s.learn.length ? sect(t, { note: '시작하기 전에 읽어요' }, <>
+        <Learn items={s.learn} />
+        {!s.steps && <Callout tone="info" title="이렇게 하면 쉬워요" items={s.tips} />}
+      </>) : null
+      case 'predict': return s.lab && s.lab.predict ? sect(t, { note: '해 보기 전에 먼저' }, <div className="predict">
+        <p className="quiz-q">{s.lab.predict.q}</p>
+        <Picks options={s.lab.predict.options} value={data.predict} onChange={(o) => set('predict', o)} />
+        <p className="small" style={{ marginTop: 10 }}>{data.predict ? '예상을 적었어요. 맞는지는 실험으로 확인해요. 결과가 달라도 괜찮아요. 왜 다른지 찾는 것이 탐구예요.' : '맞히지 않아도 돼요. 내 생각을 하나 골라요.'}</p>
+      </div>) : null
+      case 'steps': case 'steps2': {
+        const st = s[t]
+        const first = firstSteps; firstSteps = false
+        return sect(t, { note: s.n === 1 ? '소리 내어 읽어요' : '그림을 누르면 크게 보여요' }, <>
+          <Fig fig={st.fig} />
+          <StepList items={st.items} />
+          {first && <Callout tone="safe" title="안전" items={s.safety} />}
+          {first && s.tips.length > 0 && (
+            <div className="tips">
+              <button type="button" className="tips-btn" aria-expanded={tipsOpen} onClick={() => setTipsOpen(!tipsOpen)}>
+                <span>실험이 잘 안 되면</span><span aria-hidden="true">{tipsOpen ? '접기' : '펼치기'}</span>
+              </button>
+              {tipsOpen && <ul>{s.tips.map((x) => <li key={x}>{x}</li>)}</ul>}
+            </div>
+          )}
+        </>)
+      }
+      case 'record': case 'record2': {
+        const spec = s[t]
+        const withGraph = s.graph && t === 'record'
+        return sect(t, { note: '진짜 실험에서 잰 값을 적어요' }, <>
+          <p className="quiz-q">{spec.title}</p>
+          <RecordTable spec={spec} data={data} onChange={set} />
+          {spec.avg && <p className="small muted" style={{ marginTop: 8 }}>평균은 저절로 계산돼요. 이상한 값이 나와도 지우지 말고 탐구일지에 까닭을 적어요.</p>}
+          {withGraph && s.graph === 'drain' && <DrainGraph data={data} />}
+          {withGraph && s.graph === 'bands' && <BandGraph data={data} records={records} />}
+        </>)
+      }
+      case 'calc': return sect(t, { note: '빈칸을 채우면 바로 확인' }, <>
+        {s.calcNote && <p className="calc-note">{s.calcNote}</p>}
+        <Stairs items={s.calc} data={data} onChange={set} />
+      </>)
+      case 'lab': return sect(t, { title: '3D 실험실: ' + s.lab.title, note: narrow ? '' : '오른쪽 화면에서 해요' }, <>
+        {narrow && lab}
+        <ol className="guide-list">{s.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
+        {s.lab.observeQ && (
+          <div className="observe">
+            {s.lab.predict && <p className="small">내 예상: <b>{data.predict || '아직 고르지 않았어요'}</b></p>}
+            <label className="stack" style={{ gap: 6 }}>
+              <b>{s.lab.observeQ}</b>
+              <textarea className="field" style={{ minHeight: 64 }} value={data.observe || ''} onChange={(e) => set('observe', e.target.value)} placeholder="본 것을 그대로 적어요" />
+            </label>
+            {s.lab.predict && data.predict && data.observe && (
+              <p className={'fb ' + (data.predict === s.lab.predict.answer ? 'ok' : 'no')}>
+                {data.predict === s.lab.predict.answer ? '예상이 맞았어요. ' : '예상과 달랐어요. 그래서 실험을 해 보는 거예요. '}확인한 결과: {s.lab.predict.answer}
+              </p>
+            )}
+          </div>
+        )}
+      </>)
+      case 'why': return s.why.length ? sect(t, { note: '실험 결과를 설명해 줘요' }, <Learn items={s.why} />) : null
+      case 'think': {
+        const items = thinkItems(s)
+        return items.length ? sect(t, {}, <div className="stack" style={{ gap: 22 }}>{items.map((x) => <Think key={x.id} item={x} data={data} onChange={set} work={work} />)}</div>) : null
+      }
+      case 'create': return sect(t, { title: '창의 활동: ' + s.create.title, note: '시간이 남거나 집에서' }, <Create spec={s.create} data={data} set={set} sk={sk} setSk={setSk} />)
+      case 'more': return s.more.length ? sect(t, { note: '골라서 해요' }, (
+        <ul className="more-list">
+          {s.more.map((x, i) => (
+            <li key={x}>
+              <button type="button" onClick={() => set('more' + i, !data['more' + i])} aria-pressed={!!data['more' + i]}>
+                <span className="more-box" aria-hidden="true">{data['more' + i] ? '✓' : ''}</span><span>{x}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )) : null
+      case 'recap': return sect(t, {}, <Recap list={list} records={records} data={data} set={set} />)
+      case 'script': return sect(t, { note: '외우지 말고 내 말로' }, (
         <div className="stack">
           {s.speech.map((p, i) => (
             <label key={p.id} className="stack" style={{ gap: 6 }}>
@@ -43,11 +301,11 @@ function Speech({ s, data, set }) {
               <textarea className="field" style={{ minHeight: 64 }} value={data[p.id] || ''} onChange={(e) => set(p.id, e.target.value)} placeholder={peek ? '예: ' + p.sample : ''} />
             </label>
           ))}
-          <button className="btn ghost small" style={{ alignSelf: 'flex-start' }} onClick={() => setPeek(!peek)}>{peek ? '예시 감추기' : '막히면 예시 보기'}</button>
+          <button type="button" className="btn ghost small" style={{ alignSelf: 'flex-start' }} onClick={() => setPeek(!peek)}>{peek ? '예시 감추기' : '막히면 예시 보기'}</button>
         </div>
-      </Section>
-      <Section n="⏱" title="연습 기록" note="3D 무대의 1분 타이머를 써요">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+      ))
+      case 'tries': return sect(t, { note: '3D 무대의 1분 타이머를 써요' }, <>
+        <div className="auto-grid">
           {[1, 2, 3].map((i) => (
             <label key={i} className="stack" style={{ gap: 6 }}>
               <b>{i}번째 걸린 시간(초)</b>
@@ -55,207 +313,104 @@ function Speech({ s, data, set }) {
             </label>
           ))}
         </div>
-        <textarea className="field" style={{ marginTop: 10, minHeight: 64 }} placeholder="친구의 한마디(잘한 점, 고칠 점)" value={data.peer || ''} onChange={(e) => set('peer', e.target.value)} />
-      </Section>
-      <Section n="?" title="전문가 선생님께 물어볼 질문" note="예상과 다른 결과가 가장 좋은 질문">
-        <div className="stack">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="row" style={{ flexWrap: 'nowrap' }}>
-              <b className="display" style={{ color: 'var(--p)', width: 24 }}>{i + 1}</b>
-              <input className="field" value={data['q' + i] || ''} onChange={(e) => set('q' + i, e.target.value)} placeholder={peek ? s.questions[i] : '질문을 적어요'} />
-            </div>
-          ))}
-        </div>
-      </Section>
-      <Section n="!" title="심사위원이 물을 만한 질문" note="카드를 눌러 답의 방향 보기">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 }}>
+        <textarea className="field" style={{ marginTop: 10, minHeight: 64 }} placeholder="친구의 한마디(잘한 점, 고칠 점)" aria-label="친구의 한마디" value={data.peer || ''} onChange={(e) => set('peer', e.target.value)} />
+      </>)
+      case 'judge': return sect(t, { note: '먼저 내 말로 답하고 카드를 눌러요' }, (
+        <div className="flips">
           {s.judge.map(([q, a], i) => (
-            <button key={i} type="button" onClick={() => setFlip({ ...flip, [i]: !flip[i] })} aria-pressed={!!flip[i]}
-              style={{ textAlign: 'left', minHeight: 120, borderRadius: 18, border: '1.5px solid var(--line)', padding: 16, background: flip[i] ? 'var(--green-soft)' : '#fff' }}>
-              <b style={{ display: 'block', marginBottom: 6 }}>{q}</b>
-              <span className="small" style={{ color: flip[i] ? '#0d652d' : 'var(--sub)' }}>{flip[i] ? a : '먼저 내 말로 답해 보고 눌러요'}</span>
+            <button key={i} type="button" className="flipcard" onClick={() => setFlip({ ...flip, [i]: !flip[i] })} aria-pressed={!!flip[i]}>
+              <b>{q}</b><span>{flip[i] ? a : '눌러서 답의 방향 보기'}</span>
             </button>
           ))}
         </div>
-      </Section>
-      <Section n="✓" title="12월 12일 챙길 것">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          {bring.map((b, i) => (
-            <label key={b} className="row" style={{ gap: 10, padding: '8px 12px', borderRadius: 12, background: data['b' + i] ? 'var(--green-soft)' : '#f8f9fa', cursor: 'pointer' }}>
-              <input type="checkbox" checked={!!data['b' + i]} onChange={(e) => set('b' + i, e.target.checked)} style={{ width: 24, height: 24, accentColor: 'var(--green)' }} />
-              <span style={{ fontWeight: 600 }}>{b}</span>
+      ))
+      case 'questions': return sect(t, { note: '예상과 다르게 나온 결과가 가장 좋은 질문거리' }, (
+        <div className="ideas">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <label key={i} className="idea">
+              <span className="idea-n" aria-hidden="true">{i + 1}</span>
+              <input className="field" aria-label={`질문 ${i + 1}`} value={data['q' + i] || ''} onChange={(e) => set('q' + i, e.target.value)} placeholder={peek ? '예: ' + s.questions[i] : '질문을 적어요'} />
+            </label>
+          ))}
+          <button type="button" className="btn ghost small" style={{ alignSelf: 'flex-start' }} onClick={() => setPeek(!peek)}>{peek ? '예시 감추기' : '막히면 예시 보기'}</button>
+        </div>
+      ))
+      case 'bring': return sect(t, {}, (
+        <div className="auto-grid">
+          {BRING.map((b, i) => (
+            <label key={b} className={'checkrow' + (data['b' + i] ? ' on' : '')}>
+              <input type="checkbox" checked={!!data['b' + i]} onChange={(e) => set('b' + i, e.target.checked)} /><span>{b}</span>
             </label>
           ))}
         </div>
-      </Section>
-    </>
-  )
-}
-
-// 차시 안에서 바로 가기(해시 주소를 건드리지 않고 스크롤만)
-function Jump({ items }) {
-  const go = (id) => {
-    const el = document.getElementById(id)
-    if (!el) return
-    const reduce = document.documentElement.dataset.motion === '0' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+      ))
+      case 'quiz': return sect(t, { note: '틀린 문제는 복습에 모여요' }, <Quiz items={s.quiz} data={data} onChange={set} />)
+      case 'end': return sect(t, { title: '오늘의 한 줄과 스스로 점검' }, <>
+        <label className="stack" style={{ gap: 6 }}>
+          <b>오늘 새로 알게 된 것</b>
+          <input className="field" value={data.oneline || ''} onChange={(e) => set('oneline', e.target.value)} placeholder="한 줄로 적어요. 다음 시간 첫머리에 다시 보여 줘요" />
+        </label>
+        <div className="stack" style={{ marginTop: 14, gap: 8 }}>
+          {s.self.map((x, i) => (
+            <button key={x} type="button" className="self-btn" onClick={() => set('self' + i, !data['self' + i])} aria-pressed={!!data['self' + i]}>
+              <span className="star" aria-hidden="true">{data['self' + i] ? '★' : '☆'}</span><span>{x}</span>
+            </button>
+          ))}
+        </div>
+        {s.journal.length > 0 && (
+          <div className="journal-box">
+            <b>탐구일지에 남길 것</b>
+            <ul>{s.journal.map((x, i) => (
+              <li key={x}><label><input type="checkbox" checked={!!data['j' + i]} onChange={(e) => set('j' + i, e.target.checked)} /><span>{x}</span></label></li>
+            ))}</ul>
+            <a className="btn tone small" href="#/journal">탐구일지 쓰러 가기</a>
+          </div>
+        )}
+        {fb && (fb.stamp || fb.comment) && (
+          <div className="stampbox" style={{ marginTop: 16 }}>
+            {fb.stamp && <Stamp />}
+            <div><b>선생님 한마디</b><p>{fb.comment || '도장을 받았어요!'}</p></div>
+          </div>
+        )}
+        <div className="next-up">
+          <b>오늘은 여기까지</b><p>{s.next}</p>
+        </div>
+      </>)
+      default: return null
+    }
   }
-  return (
-    <nav className="jump no-print" aria-label="이 차시 안에서 바로 가기">
-      {items.map(([id, label]) => <button key={id} type="button" onClick={() => go(id)}>{label}</button>)}
-    </nav>
-  )
-}
 
-export default function Session({ n }) {
-  const user = useApp((s) => s.user)
-  const list = SESSIONS[user.work]
-  const s = list[Math.min(5, Math.max(0, n - 1))]
-  const data = useApp((st) => st.records[s.key]) || {}
-  const fb = useApp((st) => st.feedback[s.key])
-  const setField = useApp((st) => st.setField)
-  const set = (k, v) => setField(s.key, k, v)
-  const [tipsOpen, setTipsOpen] = useState(false)
-  let sec = 0
-  const N = () => ++sec
-  const jumps = [['mission', '미션'], s.learn.length && ['learn', '알아 두기'], s.steps.length && ['steps', '실험 순서'], s.lab && ['lab', '3D 실험'],
-    s.speech && ['speech', '1분 원고'], s.record && ['record', '기록'], s.calc && ['calc', '계산'], s.think && ['think', '생각'], ['quiz', '퀴즈'], ['end', '마무리']].filter(Boolean)
+  const open = firstOpen(s, data, sk)
   return (
     <div>
       <div className="sess-head">
-        <span className="nbadge" aria-hidden="true">{s.n}</span>
+        <Cookie className="nbadge" size={72} aria-hidden="true">{s.n}</Cookie>
         <div className="sess-title">
-          <span className={'chip ' + (s.kicker === '공통' ? 'green' : user.work)}>{s.n}차시 · {s.kicker}</span>
+          <span className={'chip ' + (s.kicker === '공통' ? 'green' : work)}>{s.n}차시 · {s.kicker}</span>
           <h1>{s.title}</h1>
         </div>
         <nav className="dots no-print" aria-label="차시 이동">
           {list.map((x) => <a key={x.n} href={`#/s/${x.n}`} className={x.n === s.n ? 'on' : ''} aria-current={x.n === s.n ? 'page' : undefined} aria-label={`${x.n}차시`}>{x.n}</a>)}
         </nav>
       </div>
-      <Jump items={jumps} />
-      <div className="split">
-        <div className="stack" style={{ gap: 16 }}>
-          <Section n={N()} title="오늘의 미션" id="mission">
-            <Talk work={user.work} expr={s.n === 6 ? 'wow' : 'smile'} text={s.bubble} />
-            <p className="mission">{s.mission}</p>
-          </Section>
-          {s.learn.length > 0 && (
-            <Section n={N()} title="알아 두기" id="learn" note="실험 전에 읽어요">
-              <Learn items={s.learn} />
-            </Section>
-          )}
-          {s.steps.length > 0 && (
-            <Section n={N()} title="준비물과 실험 순서" id="steps">
-              <Tools items={s.tools} />
-              <div style={{ height: 14 }} />
-              <Steps items={s.steps} />
-              <Callout tone="safe" title="안전" items={s.safety} />
-              {s.tips.length > 0 && (
-                <div className="tips">
-                  <button type="button" className="tips-btn" aria-expanded={tipsOpen} onClick={() => setTipsOpen(!tipsOpen)}>
-                    <span>실험이 잘 안 되면</span><span aria-hidden="true">{tipsOpen ? '접기' : '펼치기'}</span>
-                  </button>
-                  {tipsOpen && <ul>{s.tips.map((t) => <li key={t}>{t}</li>)}</ul>}
-                </div>
-              )}
-            </Section>
-          )}
-          {s.steps.length === 0 && s.tips.length > 0 && (
-            <Callout tone="info" title="이렇게 하면 쉬워요" items={s.tips} />
-          )}
-          {s.lab && (
-            <Section n={N()} title={'3D 실험실: ' + s.lab.title} id="lab">
-              <Predict p={s.lab.predict} data={data} set={set} />
-              <ol className="guide-list">{s.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
-              {s.lab.predict && data.predict && (
-                <label className="stack" style={{ gap: 6, marginTop: 12 }}>
-                  <b>실험해 보니 어땠나요?</b>
-                  <textarea className="field" style={{ minHeight: 64 }} value={data.observe || ''} onChange={(e) => set('observe', e.target.value)} placeholder="예상과 같았나요, 달랐나요?" />
-                </label>
-              )}
-            </Section>
-          )}
-          {s.speech && <div id="speech" className="stack" style={{ gap: 16 }}><Speech s={s} data={data} set={set} /></div>}
-          {s.record && (
-            <Section n={N()} title="기록해요" id="record" note="진짜 실험에서 잰 값을 적어요">
-              <p className="quiz-q">{s.record.title}</p>
-              <RecordTable spec={s.record} data={data} onChange={set} />
-              {s.graph && <DrainGraph data={data} />}
-              {s.record2 && <><p className="quiz-q" style={{ marginTop: 18 }}>{s.record2.title}</p><RecordTable spec={s.record2} data={data} onChange={set} /></>}
-              <p className="small muted" style={{ marginTop: 8 }}>평균은 저절로 계산돼요. 틀린 값도 지우지 말고 옆 칸에 다시 적어요.</p>
-            </Section>
-          )}
-          {s.calc && (
-            <Section n={N()} title="계산해요" id="calc" note="빈칸을 채우면 바로 확인">
-              <Stairs items={s.calc} data={data} onChange={set} />
-            </Section>
-          )}
-          {s.think && (
-            <Section n={N()} title="생각해요" id="think">
-              <div className="stack" style={{ gap: 22 }}>
-                {s.think.map((t) => <Think key={t.id} item={t} data={data} onChange={set} work={user.work} />)}
-              </div>
-            </Section>
-          )}
-          {s.more.length > 0 && (
-            <Section n={N()} title="더 해 보기" id="more" note="시간이 남거나 집에서">
-              <ul className="more-list">
-                {s.more.map((t, i) => (
-                  <li key={t}>
-                    <button type="button" onClick={() => set('more' + i, !data['more' + i])} aria-pressed={!!data['more' + i]}>
-                      <span className="more-box" aria-hidden="true">{data['more' + i] ? '✓' : ''}</span>
-                      <span>{t}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-          <Section n={N()} title="마무리 퀴즈" id="quiz">
-            <Quiz items={s.quiz} data={data} onChange={set} />
-          </Section>
-          <Section n={N()} title="오늘의 한 줄과 스스로 점검" id="end">
-            <label className="stack" style={{ gap: 6 }}>
-              <b>오늘 새로 알게 된 것</b>
-              <input className="field" value={data.oneline || ''} onChange={(e) => set('oneline', e.target.value)} placeholder="한 줄로 적어요" />
-            </label>
-            <div className="stack" style={{ marginTop: 14, gap: 8 }}>
-              {s.self.map((t, i) => (
-                <button key={t} type="button" className="self-btn" onClick={() => set('self' + i, !data['self' + i])} aria-pressed={!!data['self' + i]}>
-                  <span className="star" aria-hidden="true">{data['self' + i] ? '★' : '☆'}</span>
-                  <span>{t}</span>
-                </button>
-              ))}
-            </div>
-            {s.journal.length > 0 && (
-              <div className="journal-box">
-                <b>탐구일지에 남길 것</b>
-                <ul>{s.journal.map((t, i) => (
-                  <li key={t}>
-                    <label><input type="checkbox" checked={!!data['j' + i]} onChange={(e) => set('j' + i, e.target.checked)} /><span>{t}</span></label>
-                  </li>
-                ))}</ul>
-                <a className="btn tone small" href="#/journal">탐구일지 쓰러 가기</a>
-              </div>
-            )}
-            {fb && (fb.stamp || fb.comment) && (
-              <div className="stampbox" style={{ marginTop: 16 }}>
-                {fb.stamp && <span className="stamp-c">참 잘했어요</span>}
-                <div><b>선생님 한마디</b><p>{fb.comment || '도장을 받았어요!'}</p></div>
-              </div>
-            )}
-          </Section>
-          <nav className="row no-print" style={{ justifyContent: 'space-between' }}>
+      <Strip seq={seq} s={s} states={states} active={active} work={work} value={value} />
+      {showResume && (
+        <div className="resume no-print" role="status">
+          <span>지난번에 「{blockName(resume.current, s)}」까지 봤어요.</span>
+          <button type="button" className="btn small" onClick={() => { scrollToBlock(resume.current); setShowResume(false) }}>거기로 가기</button>
+          <button type="button" className="btn ghost small" onClick={() => setShowResume(false)}>처음부터 볼래요</button>
+        </div>
+      )}
+      <div className={'split' + (!s.lab || narrow ? ' solo' : '')}>
+        <div className="flow">
+          {seq.map(render)}
+          <nav className="row no-print sess-nav">
             {s.n > 1 ? <a className="btn ghost" href={`#/s/${s.n - 1}`}>{s.n - 1}차시로</a> : <span />}
+            {value < 0.8 && open !== 'mission' && <button type="button" className="btn tone" onClick={() => scrollToBlock(open)}>아직 안 한 곳: {blockShort(open, s)}</button>}
             {s.n < 6 ? <a className="btn" href={`#/s/${s.n + 1}`}>{s.n + 1}차시로</a> : <a className="btn" href="#/practice">면담 연습하러 가기</a>}
           </nav>
         </div>
-        <aside className="lab" aria-label="3D 실험실">
-          <div className="labbox">
-            <LabSwitch key={s.key} sim={s.lab?.sim} work={user.work} speechParts={(s.speech || []).map((p) => ({ label: p.label, text: data[p.id] }))} />
-          </div>
-          <p className="small muted" style={{ marginTop: 8 }}>{WORKS[user.work].name}. 한 손가락으로 돌리고, 두 손가락으로 크게 봐요.</p>
-        </aside>
+        {s.lab && !narrow && <aside className="lab" aria-label="3D 실험실">{lab}</aside>}
       </div>
     </div>
   )

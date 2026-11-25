@@ -5,8 +5,9 @@ const LS = 'invlab.v1'
 const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d } catch (e) { return d } }
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch (e) { /* 저장 불가 환경 */ } }
 
-const prefs0 = read(LS + '.prefs', { size: 1, motion: true })
+const prefs0 = { size: 1, motion: true, help: {}, ...read(LS + '.prefs', {}) }
 const user0 = read(LS + '.user', null)
+const last0 = user0 ? read(LS + '.last.' + user0.name, null) : null
 const cache0 = user0 ? read(LS + '.rec.' + user0.name, { records: {}, dirty: {} }) : { records: {}, dirty: {} }
 
 const timers = {}
@@ -18,6 +19,8 @@ export const useApp = create((set, get) => ({
   feedback: {},
   sync: 'idle', // idle | saving | saved | offline | error
   syncMsg: '',
+  syncCode: '',
+  last: last0, // 마지막으로 하던 곳 {n, sec, at}
   prefs: prefs0,
   teacherPin: null,
 
@@ -28,14 +31,14 @@ export const useApp = create((set, get) => ({
     const user = { name: s.name, work: s.work, pin }
     write(LS + '.user', user)
     const cache = read(LS + '.rec.' + s.name, { records: {}, dirty: {} })
-    set({ user, records: cache.records || {}, dirty: cache.dirty || {} })
+    set({ user, records: cache.records || {}, dirty: cache.dirty || {}, last: read(LS + '.last.' + s.name, null), syncCode: '' })
     await get().pull()
     return user
   },
 
   logout() {
     try { localStorage.removeItem(LS + '.user') } catch (e) { /* 무시 */ }
-    set({ user: null, records: {}, dirty: {}, feedback: {}, sync: 'idle' })
+    set({ user: null, records: {}, dirty: {}, feedback: {}, sync: 'idle', syncCode: '', last: null })
   },
 
   // 인터넷이 없을 때: 이 기기에만 먼저 기록하고, 연결되면 서버에 등록
@@ -43,7 +46,7 @@ export const useApp = create((set, get) => ({
     const user = { name: name.trim(), work, pin }
     write(LS + '.user', user)
     const cache = read(LS + '.rec.' + user.name, { records: {}, dirty: {} })
-    set({ user, records: cache.records || {}, dirty: cache.dirty || {}, sync: 'offline' })
+    set({ user, records: cache.records || {}, dirty: cache.dirty || {}, sync: 'offline', last: read(LS + '.last.' + user.name, null) })
   },
 
   async pull() {
@@ -60,12 +63,49 @@ export const useApp = create((set, get) => ({
       // 이 기기에서 아직 못 보낸 기록은 지키고, 나머지는 서버 것으로
       const merged = { ...r.records }
       Object.keys(dirty).forEach((k) => { if (dirty[k]) merged[k] = get().records[k] })
-      set({ records: merged, feedback: r.feedback || {}, sync: 'saved' })
+      set({ records: merged, feedback: r.feedback || {}, sync: 'saved', syncCode: '', syncMsg: '' })
       write(LS + '.rec.' + user.name, { records: merged, dirty })
       Object.keys(dirty).forEach((k) => dirty[k] && get().flush(k))
     } catch (e) {
-      set({ sync: e.code === 'OFFLINE' ? 'offline' : 'error', syncMsg: e.message })
+      set({ sync: e.code === 'OFFLINE' ? 'offline' : 'error', syncMsg: e.message, syncCode: e.code })
     }
+  },
+
+  // 선생님이 비밀번호를 바꿔 준 뒤 새 숫자로 다시 잇기. 이 기기에 남은 기록은 그대로 올라간다.
+  async relogin(pin) {
+    const user = { ...get().user, pin }
+    write(LS + '.user', user)
+    set({ user, syncCode: '', syncMsg: '' })
+    await get().pull()
+  },
+
+  // 아직 못 보낸 기록을 다시 보낸다
+  retryDirty() {
+    const { dirty, syncCode } = get()
+    if (syncCode === 'BAD_PIN' || syncCode === 'LOCKED') return
+    Object.keys(dirty).forEach((k) => dirty[k] && get().flush(k))
+  },
+
+  // 화면을 닫는 순간: 기다리던 저장을 바로 보낸다
+  flushNow() {
+    const { dirty, user, records } = get()
+    if (!user) return
+    Object.keys(dirty).forEach((k) => {
+      if (!dirty[k]) return
+      clearTimeout(timers[k])
+      api.save(user.name, user.pin, k, records[k] || {}, true).then(() => {
+        const nd = { ...get().dirty, [k]: false }
+        set({ dirty: nd }); write(LS + '.rec.' + user.name, { records: get().records, dirty: nd })
+      }).catch(() => {})
+    })
+  },
+
+  setLast(n, sec) {
+    const { user, last } = get()
+    if (!user || (last && last.n === n && last.sec === sec)) return
+    const v = { n, sec, at: Date.now() }
+    write(LS + '.last.' + user.name, v)
+    set({ last: v })
   },
 
   setField(key, field, value) {
@@ -85,10 +125,11 @@ export const useApp = create((set, get) => ({
     try {
       await api.save(user.name, user.pin, key, records[key] || {})
       const nd = { ...get().dirty, [key]: false }
-      set({ dirty: nd, sync: 'saved', syncMsg: '' })
+      const left = Object.values(nd).some(Boolean)
+      set({ dirty: nd, sync: left ? get().sync : 'saved', syncMsg: '', syncCode: '' })
       write(LS + '.rec.' + user.name, { records: get().records, dirty: nd })
     } catch (e) {
-      set({ sync: e.code === 'OFFLINE' ? 'offline' : 'error', syncMsg: e.message })
+      set({ sync: e.code === 'OFFLINE' ? 'offline' : 'error', syncMsg: e.message, syncCode: e.code })
     }
   },
 

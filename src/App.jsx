@@ -10,7 +10,9 @@ import LabPage from './pages/LabPage'
 import Journal from './pages/Journal'
 import Words from './pages/Words'
 import Practice from './pages/Practice'
+import Review from './pages/Review'
 import Teacher from './pages/Teacher'
+import { ZoomLayer } from './components/extra'
 
 function Prefs() {
   const prefs = useApp((s) => s.prefs)
@@ -31,26 +33,89 @@ function StudentBar() {
   const user = useApp((s) => s.user)
   const logout = useApp((s) => s.logout)
   const [open, setOpen] = useState(false)
-  const links = [['#/', '탐구 지도'], ['#/lab', '발명품 실험실'], ['#/journal', '탐구일지'], ['#/words', '낱말 사전'], ['#/practice', '면담 연습']]
   return (
     <header className="topbar no-print">
       <a className="brand" href="#/"><img src="/favicon.svg" alt="" /><b>발명 탐구 실험실</b></a>
-      {user && <span className={'chip ' + user.work}>{WORKS[user.work].short} · {user.name}</span>}
       <span className="grow" />
       <SaveBadge />
+      <a className="tb-btn" href="#/words">낱말</a>
       <Prefs />
       <div style={{ position: 'relative' }}>
-        <button className="tb-btn" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>메뉴</button>
+        <button className={'tb-btn who ' + user.work} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}><span className="who-n">{user.name}</span></button>
         {open && (
-          <div role="menu" className="panel" style={{ position: 'absolute', right: 0, top: 52, width: 220, padding: 8, zIndex: 40 }} onClick={() => setOpen(false)}>
-            {links.map(([h, l]) => <a key={h} role="menuitem" href={h} className="btn ghost" style={{ width: '100%', justifyContent: 'flex-start', border: 0 }}>{l}</a>)}
-            <hr style={{ border: 0, borderTop: '1px solid var(--line2)', margin: '6px 0' }} />
-            <button role="menuitem" className="btn ghost" style={{ width: '100%', justifyContent: 'flex-start', border: 0, color: 'var(--red)' }} onClick={() => { logout(); go('/') }}>나가기</button>
+          <div role="menu" className="panel menu" onClick={() => setOpen(false)}>
+            <p className="small muted" style={{ padding: '6px 12px' }}>{WORKS[user.work].name}</p>
+            <a role="menuitem" href="#/words" className="btn ghost">낱말 사전</a>
+            <a role="menuitem" href="#/journal" className="btn ghost">탐구일지 인쇄</a>
+            <hr />
+            <button role="menuitem" className="btn ghost out" onClick={() => { logout(); go('/') }}>나가기</button>
           </div>
         )}
       </div>
     </header>
   )
+}
+
+const ICON = {
+  home: 'M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z',
+  lab: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3M7.5 15h9',
+  journal: 'M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 8h5M10 12h5',
+  review: 'M4 12a8 8 0 1 1 2.6 5.9M4 20v-5h5M12 8v4l3 2',
+  talk: 'M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zM6 11v1a6 6 0 0 0 12 0v-1M12 18v3',
+}
+const DOCK = [['', 'home', '홈'], ['lab', 'lab', '실험실'], ['journal', 'journal', '일지'], ['review', 'review', '복습'], ['practice', 'talk', '면담']]
+
+// 아래쪽에 떠 있는 메뉴. 글자를 적는 동안에는 숨는다.
+function Dock({ at }) {
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const isField = (el) => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(el.type)))
+    const on = (e) => setTyping(isField(e.target))
+    const off = () => setTimeout(() => setTyping(isField(document.activeElement)), 60)
+    document.addEventListener('focusin', on); document.addEventListener('focusout', off)
+    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off) }
+  }, [])
+  const cur = at === 's' ? '' : at || ''
+  return (
+    <nav className={'dock no-print' + (typing ? ' away' : '')} aria-label="주 메뉴">
+      {DOCK.map(([h, icon, label]) => (
+        <a key={h} href={'#/' + h} className={cur === h && at !== 's' ? 'on' : ''} aria-current={cur === h && at !== 's' ? 'page' : undefined}>
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d={ICON[icon]} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span>{label}</span>
+        </a>
+      ))}
+    </nav>
+  )
+}
+
+// 저장이 막혔을 때 알리는 띠
+function SyncBanner() {
+  const code = useApp((s) => s.syncCode)
+  const sync = useApp((s) => s.sync)
+  const dirty = useApp((s) => s.dirty)
+  const relogin = useApp((s) => s.relogin)
+  const retry = useApp((s) => s.retryDirty)
+  const [pin, setPin] = useState('')
+  const left = Object.values(dirty).filter(Boolean).length
+  if (code === 'BAD_PIN') {
+    return (
+      <form className="banner warn no-print" onSubmit={(e) => { e.preventDefault(); if (pin.length >= 4) { relogin(pin); setPin('') } }}>
+        <span><b>비밀번호가 바뀌었나요?</b> 선생님이 알려 준 새 숫자를 넣으면 이 태블릿에 적어 둔 기록이 그대로 올라가요.</span>
+        <input className="field" type="password" inputMode="numeric" autoComplete="off" aria-label="새 비밀번호" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 12))} />
+        <button className="btn small" type="submit" disabled={pin.length < 4}>다시 잇기</button>
+      </form>
+    )
+  }
+  if (code === 'LOCKED') return <div className="banner warn no-print" role="status"><span><b>잠깐 잠겼어요.</b> 비밀번호를 여러 번 틀렸어요. 적은 내용은 이 태블릿에 남아 있어요. 10분 뒤에 저절로 다시 보내요.</span></div>
+  if ((sync === 'offline' || sync === 'error') && left > 0) {
+    return (
+      <div className="banner no-print" role="status">
+        <span><b>인터넷이 끊겼어요.</b> 적은 내용은 이 태블릿에 저장해 뒀어요. 연결되면 저절로 올라가요.</span>
+        <button type="button" className="btn ghost small" onClick={retry}>지금 다시 보내기</button>
+      </div>
+    )
+  }
+  return null
 }
 
 export default function App() {
@@ -62,26 +127,43 @@ export default function App() {
   useEffect(() => { if (user) pull() }, []) // eslint-disable-line
   useEffect(() => { window.scrollTo(0, 0) }, [user?.name])
   useEffect(() => {
-    const on = () => user && pull()
-    window.addEventListener('online', on)
-    return () => window.removeEventListener('online', on)
-  }, [user]) // eslint-disable-line
+    if (!user) return
+    const st = () => useApp.getState()
+    const online = () => st().pull()
+    // 화면을 닫거나 다른 앱으로 넘어가는 순간 기다리던 저장을 바로 보낸다
+    const hide = () => { if (document.visibilityState === 'hidden') st().flushNow() }
+    const leave = () => st().flushNow()
+    // 못 보낸 기록이 있으면 15초마다 다시 보낸다
+    const id = setInterval(() => {
+      const { sync, dirty, syncCode } = st()
+      if (!Object.values(dirty).some(Boolean)) return
+      if (syncCode === 'LOCKED' || sync === 'offline' || sync === 'error') (syncCode === 'LOCKED' ? st().pull() : st().retryDirty())
+    }, 15000)
+    window.addEventListener('online', online)
+    window.addEventListener('pagehide', leave)
+    document.addEventListener('visibilitychange', hide)
+    return () => { clearInterval(id); window.removeEventListener('online', online); window.removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', hide) }
+  }, [user?.name]) // eslint-disable-line
 
-  if (route[0] === 'teacher') return <div className="app"><Teacher route={route.slice(1)} /></div>
+  if (route[0] === 'teacher') return <div className="app"><Teacher route={route.slice(1)} /><ZoomLayer /></div>
   if (!user) return <div className="app"><Join /></div>
   let page
   switch (route[0]) {
-    case 's': page = <Session n={+route[1] || 1} />; break
+    case 's': page = <Session key={route[1] || 1} n={+route[1] || 1} sec={route[2] ? decodeURIComponent(route[2]) : ''} />; break
     case 'lab': page = <LabPage />; break
     case 'journal': page = <Journal />; break
     case 'words': page = <Words />; break
     case 'practice': page = <Practice />; break
+    case 'review': page = <Review />; break
     default: page = <Home />
   }
   return (
     <div className={'app work-' + user.work}>
       <StudentBar />
+      <SyncBanner />
       <main className="main" id="main">{page}</main>
+      <Dock at={route[0]} />
+      <ZoomLayer />
     </div>
   )
 }

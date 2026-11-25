@@ -6,7 +6,11 @@ import { TEACH, GUIDE, pick, tagOf } from '../data/guide'
 import { sessionProgress } from '../lib/progress'
 import { go } from '../lib/router'
 import { RecordTable, Stairs, Think, Callout } from '../components/ui'
-import { LabSwitch } from '../labs'
+import { Create, Sketch } from '../components/extra'
+import { LabFrame } from '../labs/LabFrame'
+import { labHelp } from '../labs/help'
+import { blockName, sequence } from '../data/blocks'
+import { thinkItems } from '../lib/progress'
 
 const TK = 'invlab.v1.tpin'
 const getPin = () => { try { return sessionStorage.getItem(TK) } catch (e) { return null } }
@@ -26,6 +30,7 @@ const sampleOf = (t) => {
   if (t.type === 'frame' && t.sample) return `${t.parts[0]} ${t.sample.a} ${t.parts[2]} ${t.sample.b} ${t.parts[4]}`
   if (t.type === 'fair' && t.sample) return `바꾼 것: ${t.sample.changed} / 같게 한 것: ${t.sample.same} / 잰 것: ${t.sample.measured}`
   if (t.type === 'table') return '실제로 해 본 결과를 적으면 돼요.'
+  if (Array.isArray(t.sample)) return t.sample.join(' / ')
   return typeof t.sample === 'string' ? t.sample : ''
 }
 const cellClass = (sess, d, fb) => (fb?.stamp ? 'stamped' : sessionProgress(sess, d) >= 0.8 ? 'done' : sessionProgress(sess, d) > 0 ? 'part' : '')
@@ -209,6 +214,11 @@ function Detail({ pin, s, n, onDone }) {
   const sess = ss[Math.min(5, Math.max(0, n - 1))]
   const d = s.records[sess.key]?.data || {}
   const at = s.records[sess.key]?.at
+  const sk = s.records['k' + sess.n]?.data || {}
+  const rv = s.records.review?.data || {}
+  const prev = sess.n > 1 ? ss[sess.n - 2] : null
+  const stillWrong = ss.reduce((a, x) => a + x.quiz.filter((q, i) => { const v = (s.records[x.key]?.data || {})['quiz' + i]; return v !== undefined && v !== q.answer && !(rv.fixed || {})[`${x.key}:${i}`] }).length, 0)
+    + Object.keys(rv.wrong || {}).filter((k) => k.startsWith('w:') && rv.wrong[k]).length
   const noop = () => {}
   return (
     <div className={'work-' + s.work}>
@@ -228,6 +238,8 @@ function Detail({ pin, s, n, onDone }) {
             <div className="sec-t"><span className="badge">{sess.n}</span><h2>{sess.title}</h2><span className="note">{at ? `마지막 기록 ${ago(at)}` : '아직 기록 없음'} · {Math.round(sessionProgress(sess, d) * 100)}%</span></div>
             {d.predict && <p><b>예상</b> {d.predict} {sess.lab?.predict?.answer && <span className={'chip ' + (d.predict === sess.lab.predict.answer ? 'green' : 'gray')}>{d.predict === sess.lab.predict.answer ? '맞음' : `정답 ${sess.lab.predict.answer}`}</span>}</p>}
             {d.observe && <p style={{ marginTop: 6 }}><b>관찰</b> {d.observe}</p>}
+            {prev && d.recallq !== undefined && (() => { const q = prev.quiz[d.recallqi ?? 0]; return q ? <p style={{ marginTop: 6 }}><b>지난 시간 돌아보기</b> {q.q} → <span style={{ fontWeight: 700, color: d.recallq === q.answer ? 'var(--green)' : 'var(--red)' }}>{q.options[d.recallq]}{d.recallq === q.answer ? ' ○' : ` × (정답 ${q.options[q.answer]})`}</span></p> : null })()}
+            {d.recap && <p style={{ marginTop: 6 }}><b>가장 기억에 남는 실험</b> {d.recap}</p>}
           </section>
           {sess.record && (
             <section className="panel stack">
@@ -246,6 +258,15 @@ function Detail({ pin, s, n, onDone }) {
                   <div className="ans"><p className="quiz-q">예시</p><p>{sampleOf(t) || '학생 경험에 따라 달라요.'}</p></div>
                 </div>
               ))}
+            </section>
+          )}
+          {sess.create && (
+            <section className="panel stack" style={{ gap: 14 }}>
+              <div className="sec-t" style={{ marginBottom: 0 }}><h2>창의 활동: {sess.create.title}</h2><span className="note">정답 없음. 까닭이 붙었는지 봐 주세요</span></div>
+              <Create spec={sess.create} data={d} set={noop} sk={sk} setSk={noop} readOnly />
+              <details className="qa open-t"><summary>예시 답 보기</summary>
+                {sess.create.items.filter((it) => it.sample).map((it) => <p key={it.id}><b>{it.q}</b> {Array.isArray(it.sample) ? it.sample.join(' / ') : it.sample}</p>)}
+              </details>
             </section>
           )}
           {sess.speech && (
@@ -289,6 +310,14 @@ function Detail({ pin, s, n, onDone }) {
               {pick(TEACH[sess.n]?.assess, s.work).map((r) => (
                 <div key={r[0]}><b>{r[0]}</b><p><span className="lv lv1">잘함</span>{r[1]}</p><p><span className="lv lv2">보통</span>{r[2]}</p><p><span className="lv lv3">노력</span>{r[3]}</p></div>
               ))}
+            </div>
+          </section>
+          <section className="panel">
+            <div className="sec-t"><h2>복습</h2><a className="note" href="#/teacher/guide">복습 모드 설명</a></div>
+            <div className="kv3">
+              <p><b>{(rv.log || []).length}</b><span>번 복습</span></p>
+              <p><b>{rv.best ?? '·'}</b><span>섞어서 10문제 최고</span></p>
+              <p><b>{stillWrong}</b><span>아직 틀리는 문제</span></p>
             </div>
           </section>
           <section className="panel">
@@ -356,6 +385,12 @@ function AnswerKey({ n, work }) {
                 <tbody>{thinks.map((t) => <tr key={t.id}><td>{t.q}</td><td>{sampleOf(t) || '학생 경험에 따라 달라요.'}</td></tr>)}</tbody>
               </table></div>
             )}
+            {s.create && (
+              <div className="tbl-wrap"><table className="plan-table">
+                <thead><tr><th>창의 활동: {s.create.title}</th><th>예시(정답 없음)</th></tr></thead>
+                <tbody>{s.create.items.map((it) => <tr key={it.id}><td>{it.q}</td><td>{Array.isArray(it.sample) ? it.sample.join(' / ') : it.sample || '그림으로 답합니다. 무엇이 어떻게 움직이는지 드러났는지 봅니다.'}</td></tr>)}</tbody>
+              </table></div>
+            )}
             <div className="tbl-wrap"><table className="plan-table">
               <thead><tr><th>퀴즈</th><th>정답</th></tr></thead>
               <tbody>{s.quiz.map((q, i) => <tr key={i}><td>{i + 1}. {q.q}</td><td><b className="ok-t" style={{ display: 'block' }}>{q.options[q.answer]}</b><span className="small muted">{q.why}</span></td></tr>)}</tbody>
@@ -373,9 +408,10 @@ function Plan({ n }) {
   const [work, setWork] = useState('all')
   useEffect(() => { setWork('all') }, [n])
   const f = (arr) => pick(arr, work)
+  const ws = both ? (work === 'all' ? ['rain', 'tape'] : [work]) : ['rain']
   const sciences = (T.science || []).filter((c) => work === 'all' || !c.w || c.w === work)
   const notes = (T.notes || []).filter((c) => work === 'all' || !c.w || c.w === work)
-  const toc = [['p-goal', '목표'], ['p-prep', '준비'], ['p-flow', '40분 흐름'], ['p-talk', '이렇게 말해요'], ['p-ask', '발문'], ['p-sci', '과학 배경'], ['p-trouble', '안 될 때'], ['p-key', '정답'], ['p-assess', '평가'], ['p-diff', '수준별 지도']]
+  const toc = [['p-goal', '목표'], ['p-prep', '준비'], ['p-link', '앞뒤 연결'], ['p-flow', '40분 흐름'], ['p-3d', '3D 실험실'], ['p-talk', '이렇게 말해요'], ['p-ask', '발문'], ['p-sci', '과학 배경'], ['p-trouble', '안 될 때'], ['p-key', '정답'], ['p-assess', '평가'], ['p-diff', '수준별 지도']]
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
     <div className="stack plan" style={{ gap: 16 }}>
@@ -423,11 +459,57 @@ function Plan({ n }) {
       </div>
 
       <section className="panel">
+        <SecT id="p-link" title="앞뒤 차시와 이어지는 곳" note="학생 화면 첫머리와 끝에 같은 말이 나옵니다" />
+        <div className="link-grid">
+          {ws.map((w) => {
+            const x = SESSIONS[w][n - 1]
+            return (
+              <div key={w} className={'work-' + w + ' link-row'}>
+                <div className="link-c"><b>지난 시간에서</b><p>{x.bridge || '첫 시간입니다. 계획서를 처음 함께 읽습니다.'}</p></div>
+                <div className="link-c now"><b>이번 시간</b><p>{x.mission}</p></div>
+                <div className="link-c"><b>다음 시간으로</b><p>{x.next}</p></div>
+              </div>
+            )
+          })}
+        </div>
+        {n > 1 && <p className="small muted" style={{ marginTop: 10 }}>학생 화면의 「지난 시간 돌아보기」가 지난 차시의 한 줄, 그때 잰 평균, 복습 한 문제를 보여 줍니다. 비어 있으면 지난 차시로 가는 길을 알려 줍니다.</p>}
+      </section>
+
+      <section className="panel">
         <SecT id="p-flow" title="40분 흐름" note={both ? '35분은 작품별로, 마지막 5분은 함께' : ''} />
-        <div className="tbl-wrap"><table className="plan-table flow">
-          <thead><tr><th style={{ width: 92 }}>시간</th><th>선생님</th><th>학생</th></tr></thead>
-          <tbody>{f(T.flow).map((r, i) => <tr key={i}><td className="nw"><b style={{ display: 'block' }}>{r[0]}</b><Tag x={r} /></td><td>{r[1]}</td><td>{r[2]}</td></tr>)}</tbody>
+        <div className="tbl-wrap"><table className="plan-table flowtbl">
+          <thead><tr><th style={{ width: 92 }}>시간</th><th>선생님</th><th>학생</th><th style={{ width: '22%' }}>앱 화면(이 순서로 나옴)</th></tr></thead>
+          <tbody>{f(T.flow).map((r, i) => (
+            <tr key={i}><td className="nw"><b style={{ display: 'block' }}>{r[0]}</b><Tag x={r} /></td><td>{r[1]}</td><td>{r[2]}</td>
+              <td>{String(r[3] || '').split(', ').filter(Boolean).map((a) => <span key={a} className="app-chip">{a}</span>)}</td></tr>
+          ))}</tbody>
         </table></div>
+        <details className="qa open-t" style={{ marginTop: 12 }}><summary>학생 화면 구역 전체 순서 보기</summary>
+          {ws.map((w) => { const x = SESSIONS[w][n - 1]; return <p key={w}>{sequence(x).filter((t) => t !== 'think' || thinkItems(x).length).map((t, i) => <span key={t} className="app-chip">{i + 1}. {blockName(t, x)}</span>)}</p> })}
+        </details>
+      </section>
+
+      <section className="panel">
+        <SecT id="p-3d" title="3D 실험실 쓰는 법" note="진짜 실험을 먼저 하고, 3D로 확인합니다" />
+        <div className="grid-2 inner">
+          {ws.map((w) => {
+            const x = SESSIONS[w][n - 1]
+            const h = labHelp(x.lab.sim, w)
+            return (
+              <div key={w} className={'work-' + w}>
+                <b className="sub-t">{x.lab.title}</b>
+                <ol>{x.lab.guide.map((g) => <li key={g}>{g}</li>)}</ol>
+                <p className="small"><b>눈여겨볼 곳</b> {h.see}</p>
+                <p className="small"><b>진짜 실험과 다른 점</b> {h.real}</p>
+              </div>
+            )
+          })}
+          <div>
+            <b className="sub-t">지도할 때</b>
+            <ul>{f(T.lab3d || []).map((g) => <li key={txt(g)}><Tag x={g} />{txt(g)}</li>)}</ul>
+            <p className="small muted">상자 아래 「사용법」은 손짓과 순서를 다시 보여 주고, 「처음 시점으로」는 돌려 놓은 모형을 되돌리며, 「크게 보기」는 화면 가득 키웁니다.</p>
+          </div>
+        </div>
       </section>
 
       <section className="panel">
@@ -492,7 +574,7 @@ function Plan({ n }) {
 }
 
 function Guide() {
-  const toc = [['g-over', '대회 한눈에'], ['g-app', '앱 쓰는 법'], ['g-works', '두 작품 이해'], ['g-expert', '전문가 지도 날'], ['g-mb', '마이크로비트'], ['g-caution', '주의할 점'], ['g-mat', '준비물 전체'], ['g-words', '어려운 말 풀이']]
+  const toc = [['g-over', '대회 한눈에'], ['g-app', '앱 쓰는 법'], ['g-works', '두 작품 이해'], ['g-creative', '창의 활동'], ['g-review', '복습 모드'], ['g-resume', '끊겼을 때'], ['g-expert', '전문가 지도 날'], ['g-mb', '마이크로비트'], ['g-caution', '주의할 점'], ['g-mat', '준비물 전체'], ['g-words', '어려운 말 풀이']]
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const G = GUIDE
   return (
@@ -545,6 +627,42 @@ function Guide() {
           <h3 className="h3">왜 물 무게로 힘을 잴까</h3>
           <div className="kv-list">{G.works.water.map(([k, v, w]) => <div key={k}><b><span className={'chip ' + w}>{k}</span></b><p>{v}</p></div>)}</div>
           <p className="small muted">과학에서 힘의 단위는 N(뉴턴)이고, 물 100 g의 무게가 약 1 N입니다.</p>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-creative" title="창의 활동 지도" note="차시마다 하나씩" />
+          <p className="lead">{G.creative.intro}</p>
+          <div className="grid-2 inner">
+            <div>
+              <b className="sub-t">활동의 종류</b>
+              <div className="kv-list">{G.creative.kinds.map(([a, b]) => <div key={a}><b>{a}</b><p>{b}</p></div>)}</div>
+            </div>
+            <div>
+              <b className="sub-t">이런 점을 봐 주세요</b>
+              <div className="kv-list">{G.creative.look.map(([a, b]) => <div key={a}><b>{a}</b><p>{b}</p></div>)}</div>
+            </div>
+          </div>
+          <div className="tbl-wrap" style={{ marginTop: 14 }}><table className="plan-table">
+            <thead><tr><th>차시</th><th>빗물 덮개</th><th>테이프 감개</th></tr></thead>
+            <tbody>{[1, 2, 3, 4, 5, 6].map((k) => (
+              <tr key={k}><td className="nw"><b>{k}차시</b></td>
+                {['rain', 'tape'].map((w) => { const c = SESSIONS[w][k - 1].create; return <td key={w}><b style={{ display: 'block' }}>{c.title}</b><span className="small muted">{c.items.map((it) => ({ list: '여러 가지 떠올리기', cards: '생각 카드', sketch: '그림판', text: '글로 쓰기' }[it.type])).join(' · ')}</span></td> })}
+              </tr>
+            ))}</tbody>
+          </table></div>
+          <p className="small muted" style={{ marginTop: 10 }}>{G.creative.note}</p>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-review" title="복습 모드" />
+          <p className="lead">{G.review.intro}</p>
+          <div className="kv-list">{G.review.modes.map(([a, b]) => <div key={a}><b>{a}</b><p>{b}</p></div>)}</div>
+          <ul className="check-list" style={{ marginTop: 12 }}>{G.review.use.map((t) => <li key={t}>{t}</li>)}</ul>
+        </section>
+
+        <section className="panel">
+          <SecT id="g-resume" title="수업이 끊겼을 때" note="기록은 이렇게 이어집니다" />
+          <ul className="check-list">{G.resume.map((t) => <li key={t}>{t}</li>)}</ul>
         </section>
 
         <section className="panel">
@@ -623,9 +741,7 @@ function Show({ work, n }) {
   return (
     <div className={'show work-' + w}>
       <div style={{ position: 'relative' }}>
-        <div className="labbox" style={{ height: '100%', borderRadius: 0, boxShadow: 'none' }}>
-          {s.lab ? <LabSwitch key={w + s.key} sim={s.lab.sim} work={w} speechParts={(s.speech || []).map((p) => ({ label: p.label, text: p.sample }))} /> : null}
-        </div>
+        {s.lab ? <LabFrame key={w + s.key} auto={false} sim={s.lab.sim} work={w} guide={s.lab.guide} title={s.lab.title} speechParts={(s.speech || []).map((p) => ({ label: p.label, text: p.sample }))} /> : null}
       </div>
       <div className="side">
         <div className="row" style={{ justifyContent: 'space-between' }}>

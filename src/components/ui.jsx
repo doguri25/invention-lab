@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useApp } from '../lib/store'
 import { fmt } from '../lib/physics'
+import { IdeaList, Fig, Pic } from './extra'
 
-export function Section({ n, title, note, children, id }) {
+const STATE = { done: '다 했어요', half: '하는 중' }
+export function Section({ n, title, note, children, id, state, block }) {
   return (
-    <section className="panel" id={id} aria-labelledby={id ? id + '-t' : undefined}>
+    <section className={'panel' + (state ? ' st-' + state : '')} id={id} data-block={block} aria-labelledby={id ? id + '-t' : undefined}>
       <div className="sec-t">
         {n != null && <span className="badge" aria-hidden="true">{n}</span>}
         <h2 id={id ? id + '-t' : undefined}>{title}</h2>
+        {STATE[state] && <span className={'sec-st ' + state}>{STATE[state]}</span>}
         {note && <span className="note">{note}</span>}
       </div>
       {children}
@@ -65,7 +68,7 @@ export function Picks({ options, value, onChange, answer, reveal }) {
 export function SaveBadge() {
   const sync = useApp((s) => s.sync)
   const msg = useApp((s) => s.syncMsg)
-  const label = { idle: '저장 준비', saving: '저장 중', saved: '저장됨', offline: '이 기기에 저장됨', error: '저장 못 함' }[sync]
+  const label = { idle: '저장 준비', saving: '저장 중', saved: '저장됨', offline: '이 기기에 저장됨', error: '이 기기에 저장됨' }[sync]
   return <span className={'save ' + sync} title={msg || label} role="status" aria-live="polite"><i /><span className="save-t">{label}</span></span>
 }
 
@@ -108,9 +111,12 @@ export function RecordTable({ spec, data = {}, onChange, readOnly, answers }) {
           })}
         </tbody>
       </table>
+      {spec.note && !readOnly && <p className="small muted rec-note">{spec.note}</p>}
     </div>
   )
 }
+
+export const avgOf = (data = {}, id, n = 3) => avg(Array.from({ length: n }, (_, j) => data[`${id}_${j}`]))
 
 const near = (v, ans, tol) => {
   const x = parseFloat(String(v).replace(',', ''))
@@ -168,7 +174,7 @@ export function Learn({ items }) {
       {items.map((c) => (
         <article className="learn-card" key={c.t}>
           <div className="learn-in">
-            {c.img && <div className="learn-img"><img src={c.img} alt="" loading="lazy" /></div>}
+            {c.img && <Pic src={c.img} alt={c.t} className="learn-img" />}
             <div className="learn-body">
               <h3>{c.t}</h3>
               <p>{c.d}</p>
@@ -195,6 +201,7 @@ export function Callout({ tone = 'info', title, items, children }) {
 
 export function Think({ item, data = {}, onChange, readOnly, work }) {
   const v = data[item.id]
+  if (item.type === 'list') return <IdeaList item={item} data={data} onChange={onChange} readOnly={readOnly} />
   if (item.type === 'pick') {
     return (
       <div>
@@ -243,6 +250,7 @@ export function Think({ item, data = {}, onChange, readOnly, work }) {
     const opts = { 0: ['○', '×'], 1: ['○', '×'], 2: ['1', '2', '3', '4', '5'] }
     return (
       <div>
+        {item.fig && !readOnly && <Fig fig={item.fig} />}
         <p className="quiz-q">{item.q}</p>
         <div className="rec-wrap">
           <table className="rec">

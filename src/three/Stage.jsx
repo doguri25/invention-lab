@@ -13,12 +13,18 @@ function webglOK() {
 // 화면이 세로로 길면 카메라를 조금 뒤로 물려 모형이 잘리지 않게 한다
 function Fit({ cam, target, refAspect = 1.3 }) {
   const { camera, size, controls } = useThree()
-  useEffect(() => {
+  const place = () => {
     const k = Math.min(1.7, Math.max(1, refAspect / (size.width / Math.max(1, size.height))))
     camera.position.set(target[0] + (cam[0] - target[0]) * k, target[1] + (cam[1] - target[1]) * k, target[2] + (cam[2] - target[2]) * k)
     camera.lookAt(target[0], target[1], target[2])
-    if (controls) controls.update()
-  }, [size.width, size.height, controls]) // eslint-disable-line
+    if (controls) { if (controls.target) controls.target.set(target[0], target[1], target[2]); controls.update() }
+  }
+  useEffect(place, [size.width, size.height, controls]) // eslint-disable-line
+  // 「처음 시점으로」 버튼
+  useEffect(() => {
+    window.addEventListener('invlab:resetview', place)
+    return () => window.removeEventListener('invlab:resetview', place)
+  })
   return null
 }
 

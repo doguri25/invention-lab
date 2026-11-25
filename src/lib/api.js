@@ -16,13 +16,14 @@ export class ApiError extends Error {
   constructor(code, message) { super(message); this.code = code }
 }
 
-async function rpc(fn, body) {
+async function rpc(fn, body, keepalive) {
   let res
   try {
     res = await fetch(URL + fn, {
       method: 'POST',
       headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      keepalive: !!keepalive,
     })
   } catch (e) {
     throw new ApiError('OFFLINE', '인터넷에 연결되지 않았어요. 기록은 이 기기에 먼저 저장해 둘게요.')
@@ -44,7 +45,7 @@ async function rpc(fn, body) {
 export const api = {
   join: (name, work, pin) => rpc('inv_join', { p_name: name, p_work: work, p_pin: pin }),
   load: (name, pin) => rpc('inv_load', { p_name: name, p_pin: pin }),
-  save: (name, pin, key, data) => rpc('inv_save', { p_name: name, p_pin: pin, p_key: key, p_data: data }),
+  save: (name, pin, key, data, keepalive) => rpc('inv_save', { p_name: name, p_pin: pin, p_key: key, p_data: data }, keepalive),
   teacher: {
     overview: (tpin) => rpc('inv_t_overview', { p_tpin: tpin }),
     feedback: (tpin, id, key, stamp, comment) => rpc('inv_t_feedback', { p_tpin: tpin, p_student: id, p_key: key, p_stamp: stamp, p_comment: comment || '' }),

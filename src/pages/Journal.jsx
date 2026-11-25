@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../lib/store'
 import { SESSIONS, WORKS } from '../data/content'
 import { Section, RecordTable, Stairs, Think } from '../components/ui'
+import { Create } from '../components/extra'
 
 const today = () => {
   const d = new Date()
@@ -69,6 +70,10 @@ function Summary({ work, records }) {
                 {s.record2 && <><p className="quiz-q">{s.record2.title}</p><RecordTable spec={s.record2} data={d} readOnly /></>}
                 {s.calc && <Stairs items={s.calc} data={d} readOnly />}
                 {(s.think || []).map((t) => <Think key={t.id} item={t} data={d} readOnly onChange={() => {}} work={work} />)}
+                {s.create && (s.create.items.some((it) => d[it.id] || d[it.id + '_0'] || (records['k' + s.n] || {})[it.id])) && (
+                  <div><p className="quiz-q">창의 활동: {s.create.title}</p><Create spec={s.create} data={d} set={() => {}} sk={records['k' + s.n] || {}} setSk={() => {}} readOnly /></div>
+                )}
+                {d.recap && <p><b style={{ color: 'var(--pd)' }}>가장 기억에 남는 실험</b> {d.recap}</p>}
                 {(s.speech || []).map((p) => d[p.id] ? <p key={p.id}><b style={{ color: 'var(--pd)' }}>{p.label}</b> {d[p.id]}</p> : null)}
                 {d.oneline && <p className="fb ok"><b>오늘의 한 줄</b> {d.oneline}</p>}
               </div>
@@ -85,7 +90,9 @@ export default function Journal() {
   const records = useApp((s) => s.records)
   const setField = useApp((s) => s.setField)
   const list = (records.journal && records.journal.list) || []
-  const [draft, setDraft] = useState({ date: today(), did: '', found: '', next: '' })
+  // 쓰다 만 일지도 저장해 둔다(다른 화면에 다녀와도, 앱을 닫아도 남는다)
+  const draft = { date: today(), did: '', found: '', next: '', ...((records.journal && records.journal.draft) || {}) }
+  const setDraft = (v) => setField('journal', 'draft', v)
   const [tab, setTab] = useState('days')
   const save = (l) => setField('journal', 'list', l)
   const add = () => {
@@ -112,6 +119,7 @@ export default function Journal() {
                 <textarea className="field" style={{ minHeight: 76 }} placeholder={ph} value={draft[k]} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
               </label>
             ))}
+            {(draft.did || draft.found || draft.next) && <p className="small muted" style={{ marginTop: 10 }}>쓰던 글은 저절로 남아 있어요. 다 쓰면 「일지에 넣기」를 눌러요.</p>}
             <div className="row" style={{ marginTop: 14 }}>
               <button className="btn" onClick={add} disabled={!draft.did.trim() && !draft.found.trim()}>일지에 넣기</button>
               <span className="small muted">사진은 태블릿 사진첩에 같은 날짜로 남겨 두어요.</span>

@@ -1,6 +1,6 @@
 import { useApp } from '../lib/store'
 import { WORKS, PARTS } from '../data/content'
-import { RainLab, TapeLab } from '../labs/InventionLab'
+import { LabFrame } from '../labs/LabFrame'
 
 const HOW = {
   rain: ['맑은 날: 평형추가 빈 물병보다 40 g 무거워 덮개가 열려 있어요.', '비가 오면 받이판의 빗물이 물병에 모여요. 0.25 mm면 90 g이에요.', '90 g을 넘으면 자석에서 떨어지며 딸깍 닫혀요.', '닫히면 물구멍이 열려 물이 천천히 빠져요.', '10 g 아래로 줄면 평형추가 이겨 다시 열려요.'],
@@ -10,7 +10,6 @@ const HOW = {
 export default function LabPage() {
   const user = useApp((s) => s.user)
   const W = WORKS[user.work]
-  const Lab = user.work === 'rain' ? RainLab : TapeLab
   return (
     <div className="split" style={{ gridTemplateColumns: 'minmax(0, 0.7fr) minmax(0, 1.6fr)' }}>
       <div className="stack" style={{ gap: 16 }}>
@@ -46,8 +45,8 @@ export default function LabPage() {
           </section>
         )}
       </div>
-      <div className="lab" style={{ position: 'sticky', top: 84 }}>
-        <div className="labbox" style={{ height: 'min(80vh, 760px)' }}><Lab mode="full" /></div>
+      <div className="lab tall">
+        <LabFrame sim="full" work={user.work} title={W.name} guide={HOW[user.work].slice(0, 3)} />
       </div>
     </div>
   )
