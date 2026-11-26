@@ -20,7 +20,7 @@ function Gauge({ g }) {
         <div style={{ width: pct + '%', height: '100%', borderRadius: 999, background: 'linear-gradient(90deg,#8ab4f8,#1a73e8)' }} />
         {[[10, '열림 10 g'], [90, '닫힘 90 g']].map(([v, l]) => (
           <div key={v} style={{ position: 'absolute', left: (v / max) * 100 + '%', top: -4, bottom: -4, width: 2, background: v === 90 ? '#d93025' : '#188038' }}>
-            <span style={{ position: 'absolute', top: 20, left: -24, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', color: v === 90 ? '#d93025' : '#188038' }}>{l}</span>
+            <span style={{ position: 'absolute', top: 20, left: -24, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', color: v === 90 ? '#d93025' : '#188038' }}>{l}</span>
           </div>
         ))}
       </div>

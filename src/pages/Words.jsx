@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Icon } from '../components/Icon'
 import { rich } from '../lib/rich'
 import { useApp } from '../lib/store'
 import { GLOSSARY } from '../data/content'
@@ -69,7 +70,7 @@ export default function Words() {
             </div>
             <p style={{ flex: 1 }}>{rich(d, { kw: false })}</p>
             <button className={'btn small ' + (known[t] ? '' : 'ghost')} aria-pressed={!!known[t]} onClick={() => setField('words', t, !known[t])} style={{ alignSelf: 'flex-start' }}>
-              {known[t] ? '★ 내 말로 설명할 수 있어요' : '☆ 내 말로 설명할 수 있나요?'}
+              <Icon name="star" fill={!!known[t]} /> {known[t] ? '내 말로 설명할 수 있어요' : '내 말로 설명할 수 있나요?'}
             </button>
           </article>
         ))}

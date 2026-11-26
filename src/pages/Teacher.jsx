@@ -8,6 +8,7 @@ import { go } from '../lib/router'
 import { RecordTable, Stairs, Think, Callout } from '../components/ui'
 import { Create, Sketch } from '../components/extra'
 import { SectionNav } from '../components/SectionNav'
+import { Icon } from '../components/Icon'
 import { LabFrame } from '../labs/LabFrame'
 import { labHelp } from '../labs/help'
 import { rich } from '../lib/rich'
@@ -140,7 +141,7 @@ function Dashboard({ students }) {
                 <div className="prog" aria-label="차시별 진행">
                   {ss.map((x) => {
                     const c = cellClass(x, s.records[x.key]?.data, s.feedback[x.key])
-                    return <span key={x.key} className={c} title={`${x.n}차시 ${x.title}`}>{c === 'stamped' ? '★' : x.n}</span>
+                    return <span key={x.key} className={c} title={`${x.n}차시 ${x.title}`}>{c === 'stamped' ? <Icon name="star" fill /> : x.n}</span>
                   })}
                 </div>
                 <p className="small muted">도장 {stamps}개 · 일지 {(s.records.journal?.data?.list || []).length}쪽 · 연습 {(s.records.practice?.data?.log || []).length}번</p>
@@ -169,7 +170,7 @@ function FeedbackBox({ pin, s, sess, onDone }) {
       <div className="sec-t"><h2>도장과 한마디</h2></div>
       <div className="row" style={{ alignItems: 'flex-start' }}>
         <button type="button" onClick={() => setStamp(!stamp)} aria-pressed={stamp} className="stamp-c"
-          style={{ background: stamp ? '#fff' : '#f8f9fa', opacity: stamp ? 1 : 0.35, cursor: 'pointer', width: 88, height: 88, fontSize: '1.05em' }}>참 잘했어요</button>
+          style={{ background: stamp ? '#fff' : '#f8f9fa', opacity: stamp ? 1 : 0.35, cursor: 'pointer', width: 88, height: 88, fontSize: '1.05em', whiteSpace: 'normal', lineHeight: 1.15, padding: 4, textAlign: 'center' }}>참 잘했어요</button>
         <textarea className="field" style={{ flex: '1 1 260px', minHeight: 88 }} value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500}
           placeholder="예: 세 번 재서 평균을 낸 점이 좋아요. 다음에는 같게 한 것을 더 적어 봐요." aria-label="선생님 한마디" />
       </div>
@@ -297,7 +298,7 @@ function Detail({ pin, s, n, onDone }) {
               )
             })}
             <p><b>오늘의 한 줄</b> {d.oneline || <span className="muted">비어 있음</span>}</p>
-            <p><b>스스로 점검</b> {sess.self.map((t, i) => `${d['self' + i] ? '★' : '☆'} ${t}`).join('   ')}</p>
+            <p><b>스스로 점검</b> {sess.self.map((t, i) => <span key={t} className={'self-tag' + (d['self' + i] ? ' on' : '')}><Icon name="star" fill={!!d['self' + i]} /> {t}</span>)}</p>
           </section>
         </div>
         <aside className="stack" style={{ gap: 16, position: 'sticky', top: 84 }}>

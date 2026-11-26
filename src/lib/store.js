@@ -93,7 +93,9 @@ export const useApp = create((set, get) => ({
     Object.keys(dirty).forEach((k) => {
       if (!dirty[k]) return
       clearTimeout(timers[k])
-      api.save(user.name, user.pin, k, records[k] || {}, true).then(() => {
+      const sent = records[k]
+      api.save(user.name, user.pin, k, sent || {}, true).then(() => {
+        if (get().records[k] !== sent) return // 보내는 사이에 더 적었으면 다음 저장에 맡긴다
         const nd = { ...get().dirty, [k]: false }
         set({ dirty: nd }); write(LS + '.rec.' + user.name, { records: get().records, dirty: nd })
       }).catch(() => {})
@@ -122,8 +124,11 @@ export const useApp = create((set, get) => ({
   async flush(key) {
     const { user, records } = get()
     if (!user) return
+    const sent = records[key]
     try {
-      await api.save(user.name, user.pin, key, records[key] || {})
+      await api.save(user.name, user.pin, key, sent || {})
+      // 보내는 사이에 더 적었으면 아직 못 보낸 것으로 남겨 둔다(다음 저장이 이어서 보낸다)
+      if (get().records[key] !== sent) { set({ syncMsg: '', syncCode: '' }); return }
       const nd = { ...get().dirty, [key]: false }
       const left = Object.values(nd).some(Boolean)
       set({ dirty: nd, sync: left ? get().sync : 'saved', syncMsg: '', syncCode: '' })

@@ -15,6 +15,26 @@ npm run dev      # 개발 서버
 npm run build    # dist/ 에 배포 파일
 ```
 
+## 점검
+
+```bash
+npm run build
+npm test                 # 전체(8묶음)
+npm test -- flow2 audit  # 골라서
+```
+
+`playwright`가 있어야 합니다(`npm i -g playwright && npx playwright install chromium`). 서버 응답은 흉내 내므로 실제 학생 기록은 건드리지 않습니다.
+
+| 묶음 | 보는 것 |
+|---|---|
+| `check-flow` | 지도안의 흐름과 학생 화면의 순서가 맞는지 |
+| `flow`, `flow2` | 들어가기, 기록·저장, 끊겼다 이어 하기, 복습, 그림판, 3D 도움말, 좁은 화면 |
+| `save-race` | 저장을 보내는 사이에 더 적고 바로 닫아도 마지막 내용이 남는지 |
+| `no-webgl` | 3D가 안 되거나 도중에 멈춰도 나머지 학습을 할 수 있는지 |
+| `nav` | 지도안·길잡이의 구역 이동 메뉴 |
+| `breaks` | 낱말 중간에서 줄이 바뀌는 곳 |
+| `audit` | 접근성 규칙(axe), 누르는 곳 44px, 글자 12px, 가로 넘침(375·768·1024·1440) |
+
 ## 구조
 
 | 경로 | 내용 |
@@ -23,8 +43,12 @@ npm run build    # dist/ 에 배포 파일
 | `src/three/` | 3D 모형(빗물 덮개, 테이프 감개, 안내 캐릭터) |
 | `src/labs/` | 차시별 3D 실험(도르래, 분무, 자석, 물 빼기, 각도, 빗면, 고무줄) |
 | `src/pages/` | 화면 |
-| `src/lib/store.js` | 기록 저장(기기에 먼저 저장, 0.9초 뒤 서버로) |
+| `src/lib/store.js` | 기록 저장(기기에 먼저 저장, 0.9초 뒤 서버로, 칸 단위로 합침) |
 | `src/lib/api.js` | 수파베이스 RPC 호출 |
+| `src/components/` | 공통 부품(그래프, 그림판, 아이콘, 구역 이동 메뉴, 고장 막이) |
+| `tests/` | 화면 점검 |
+| `db/` | 서버 함수 기록 |
+| `DESIGN.md` | 색·글자·모서리·그래프 규칙 |
 
 ## 데이터
 

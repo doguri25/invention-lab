@@ -297,10 +297,3 @@ export function clock(t) {
   const hh = Math.floor(m / 60) % 24, mm = m % 60
   return `${hh}:${String(mm).padStart(2, '0')}`
 }
-
-export function useLiveC(sim) {
-  // 덮개 위치는 매 프레임 부드럽게
-  const [c, setC] = useState(0)
-  useEffect(() => { setC(sim.view.c) }, [sim.view.c])
-  return c
-}

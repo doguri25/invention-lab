@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useApp } from './lib/store'
 import { useRoute, go } from './lib/router'
 import { SaveBadge } from './components/ui'
@@ -11,8 +11,12 @@ import Journal from './pages/Journal'
 import Words from './pages/Words'
 import Practice from './pages/Practice'
 import Review from './pages/Review'
-import Teacher from './pages/Teacher'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ZoomLayer } from './components/extra'
+
+// 교사 화면은 학생 태블릿에서 내려받지 않도록 따로 불러온다
+const Teacher = lazy(() => import('./pages/Teacher'))
+const Wait = () => <p className="muted" role="status" style={{ padding: 40, textAlign: 'center' }}>불러오는 중이에요…</p>
 
 function Prefs() {
   const prefs = useApp((s) => s.prefs)
@@ -131,7 +135,11 @@ export default function App() {
     const st = () => useApp.getState()
     const online = () => st().pull()
     // 화면을 닫거나 다른 앱으로 넘어가는 순간 기다리던 저장을 바로 보낸다
-    const hide = () => { if (document.visibilityState === 'hidden') st().flushNow() }
+    // 다시 돌아왔을 때 못 보낸 것이 없으면 서버 기록(선생님 도장, 다른 기기에서 적은 것)을 받아 온다
+    const hide = () => {
+      if (document.visibilityState === 'hidden') st().flushNow()
+      else if (!Object.values(st().dirty).some(Boolean)) st().pull()
+    }
     const leave = () => st().flushNow()
     // 못 보낸 기록이 있으면 15초마다 다시 보낸다
     const id = setInterval(() => {
@@ -145,7 +153,16 @@ export default function App() {
     return () => { clearInterval(id); window.removeEventListener('online', online); window.removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', hide) }
   }, [user?.name]) // eslint-disable-line
 
-  if (route[0] === 'teacher') return <div className="app"><Teacher route={route.slice(1)} /><ZoomLayer /></div>
+  // 화면이 바뀌면 키보드와 화면 읽기 프로그램이 새 화면 처음에서 이어 가게 한다
+  const first = useRef(true)
+  const where = route[0] === 's' ? 's/' + (route[1] || 1) : route[0] || ''
+  useEffect(() => {
+    if (first.current) { first.current = false; return }
+    const m = document.getElementById('main')
+    if (m && !m.contains(document.activeElement)) m.focus({ preventScroll: true })
+  }, [where])
+
+  if (route[0] === 'teacher') return <div className="app"><ErrorBoundary resetKey={route.join('/')}><Suspense fallback={<Wait />}><Teacher route={route.slice(1)} /></Suspense></ErrorBoundary><ZoomLayer /></div>
   if (!user) return <div className="app"><Join /></div>
   let page
   switch (route[0]) {
@@ -161,7 +178,7 @@ export default function App() {
     <div className={'app work-' + user.work}>
       <StudentBar />
       <SyncBanner />
-      <main className="main" id="main">{page}</main>
+      <main className="main" id="main" tabIndex={-1}><ErrorBoundary resetKey={route.join('/')}>{page}</ErrorBoundary></main>
       <Dock at={route[0]} />
       <ZoomLayer />
     </div>

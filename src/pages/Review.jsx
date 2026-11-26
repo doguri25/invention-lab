@@ -152,15 +152,13 @@ export default function Review() {
         </div>
       </header>
       <div className="rv-modes">
-        <button type="button" className="rv-mode a" disabled={!wrongItems.length} onClick={() => start('wrong', '틀린 문제', shuffle(wrongItems, seed + 11))}>
+        <button type="button" className="rv-mode a" data-big={wrongItems.length} disabled={!wrongItems.length} onClick={() => start('wrong', '틀린 문제', shuffle(wrongItems, seed + 11))}>
           <b>틀린 문제</b>
           <span>{wrongItems.length ? `${wrongItems.length}문제가 기다려요. 맞히면 여기서 빠져요.` : '지금은 없어요. 퀴즈에서 틀리면 여기에 모여요.'}</span>
-          <i className="rv-big" aria-hidden="true">{wrongItems.length}</i>
         </button>
-        <button type="button" className="rv-mode b" onClick={() => start('mix', '섞어서 10문제', shuffle(all, Date.now() % 9973).slice(0, 10))}>
+        <button type="button" className="rv-mode b" data-big="10" onClick={() => start('mix', '섞어서 10문제', shuffle(all, Date.now() % 9973).slice(0, 10))}>
           <b>섞어서 10문제</b>
           <span>모든 차시 퀴즈와 낱말 문제를 섞어서 내요.{lastMix ? ` 지난번 ${lastMix.score}점` : ''}</span>
-          <i className="rv-big" aria-hidden="true">10</i>
         </button>
       </div>
       <section className="panel">

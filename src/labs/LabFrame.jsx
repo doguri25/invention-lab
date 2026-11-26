@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../lib/store'
 import { LabSwitch } from './index'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import { GESTURES, labHelp } from './help'
 import { rich } from '../lib/rich'
 
@@ -28,7 +29,7 @@ export function LabFrame({ sim, work, speechParts, guide = [], title, auto = tru
   return (
     <div className={'lab-shell' + (full ? ' is-full' : '')}>
       <div className="labbox">
-        {children || <LabSwitch key={sim + work} sim={sim} work={work} speechParts={speechParts} />}
+        <ErrorBoundary lab resetKey={sim + work}>{children || <LabSwitch key={sim + work} sim={sim} work={work} speechParts={speechParts} />}</ErrorBoundary>
         {help && (
           <div className="lab-help" role="dialog" aria-label="3D 실험실 사용법">
             <div className="lab-help-in" ref={box} tabIndex={-1}>

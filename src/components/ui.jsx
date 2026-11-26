@@ -38,20 +38,6 @@ export function Tools({ items }) {
   )
 }
 
-export function Steps({ items }) {
-  return (
-    <ol className="steps" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-      {items.map(([img, text], i) => (
-        <li className="step" key={i}>
-          <span className="n" aria-hidden="true">{i + 1}</span>
-          <img src={`/steps/${img}.svg`} alt="" />
-          <p>{text}</p>
-        </li>
-      ))}
-    </ol>
-  )
-}
-
 export function Picks({ options, value, onChange, answer, reveal }) {
   return (
     <div className="picks" role="group">
@@ -106,7 +92,7 @@ export function RecordTable({ spec, data = {}, onChange, readOnly, answers }) {
                     )}
                   </td>
                 ))}
-                {spec.avg && <td className="avg" aria-label={`${r.label} 평균`}>{Number.isFinite(a) ? fmt(a, 1) : '–'}</td>}
+                {spec.avg && <td className="avg" aria-label={`${r.label} 평균`}>{Number.isFinite(a) ? fmt(a, 1) : ''}</td>}
               </tr>
             )
           })}
@@ -265,7 +251,7 @@ export function Think({ item, data = {}, onChange, readOnly, work }) {
                       <div className="picks" style={{ justifyContent: 'center', gap: 6 }}>
                         {opts[j].map((o) => {
                           const k = `${item.id}_${i}_${j}`
-                          return <button key={o} type="button" className="pick" style={{ minHeight: 42, padding: '0 12px' }} aria-pressed={data[k] === o} aria-label={`${r} ${c} ${o}`}
+                          return <button key={o} type="button" className="pick" style={{ minHeight: 44, padding: '0 12px' }} aria-pressed={data[k] === o} aria-label={`${r} ${c} ${o}`}
                             disabled={readOnly} onClick={() => onChange(k, o)}>{o}</button>
                         })}
                       </div>
@@ -314,28 +300,81 @@ export function Quiz({ items, data = {}, onChange }) {
   )
 }
 
-export function LineChart({ series, xMax, yMax, xLabel, yLabel, height = 220, marks = [], w = 520 }) {
-  const W = w, H = height, l = 48, r = 14, t = 16, b = 34
+// 그래프 색: 색을 잘 구분하지 못해도 갈리도록 검사해서 고른 파랑·주황·청록
+export const SERIES = ['#1967d2', '#d56e0c', '#00897b']
+const SHAPES = ['circle', 'square', 'triangle']
+function Dot({ shape, x, y, color, r = 5 }) {
+  if (shape === 'square') return <rect x={x - r} y={y - r} width={r * 2} height={r * 2} rx="1.5" fill={color} stroke="#fff" strokeWidth="2" />
+  if (shape === 'triangle') return <path d={`M${x} ${y - r - 1.5}L${x + r + 1} ${y + r}H${x - r - 1}Z`} fill={color} stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+  return <circle cx={x} cy={y} r={r} fill={color} stroke="#fff" strokeWidth="2" />
+}
+
+// compact: 3D 실험실 안에 작게 넣을 때(안내 글 줄을 뺀다). 점이 12개를 넘는 선은 끝점에만 표시를 단다.
+export function LineChart({ series, xMax, yMax, xLabel, yLabel, xUnit = '', yUnit = '', height = 230, marks = [], w = 520, compact, tags: showTags = true }) {
+  const [tip, setTip] = useState(null)
+  const W = w, H = height, l = 48, r = showTags ? 46 : 14, t = 18, b = 34
   const x = (v) => l + (v / (xMax || 1)) * (W - l - r)
   const y = (v) => H - b - (v / (yMax || 1)) * (H - t - b)
   const ticks = 5
+  const r1 = (v) => Math.round(v * 10) / 10
+  const dense = (s) => s.pts.length > 12
+  // 단위 붙이기: 초·° 는 붙여 쓰고 mL·g 은 한 칸 띈다
+  const u = (v, unit) => r1(v) + (unit ? (/^[가-힣°]/.test(unit) ? '' : '\u00a0') + unit : '')
+  // 선 끝 이름표: 세로축 위의 외톨이 점에는 달지 않고, 서로 겹치면 아래로 민다
+  const tags = series.map((s, i) => { const last = s.pts[s.pts.length - 1]; return last && showTags && series.length > 1 && !(s.pts.length === 1 && last[0] === 0) ? { i, x: Math.min(W - r + 8, x(last[0]) + 10), y: y(last[1]) + 4 } : null }).filter(Boolean).sort((a, b) => a.y - b.y)
+  tags.forEach((g, k) => { const up = tags.slice(0, k).filter((o) => Math.abs(o.x - g.x) < 44); up.forEach((o) => { if (g.y - o.y < 13) g.y = o.y + 13 }) })
+  const tagOf = (i) => tags.find((g) => g.i === i)
+  const say = (s) => (dense(s) ? [s.pts[0], s.pts[s.pts.length - 1]] : s.pts).map(([a, c]) => `${u(a, xUnit)}에 ${u(c, yUnit)}`).join(', ')
+  const pts = series.flatMap((s, si) => s.pts.map(([a, c], pi) => ({ s, si, pi, a, c })))
+  // 손가락이나 마우스에서 가장 가까운 점
+  const near = (e) => {
+    const box = e.currentTarget.getBoundingClientRect()
+    const px = ((e.clientX - box.left) / box.width) * W, py = ((e.clientY - box.top) / box.height) * H
+    let best = null, bd = Infinity
+    pts.forEach((p) => { const d = (x(p.a) - px) ** 2 + (y(p.c) - py) ** 2; if (d < bd) { bd = d; best = p } })
+    setTip(best)
+  }
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label={`${yLabel}와 ${xLabel} 그래프`}>
-      {Array.from({ length: ticks + 1 }, (_, i) => (
-        <g key={i}>
-          <line x1={l} x2={W - r} y1={y((yMax * i) / ticks)} y2={y((yMax * i) / ticks)} stroke="#e8eaed" />
-          <text x={l - 8} y={y((yMax * i) / ticks) + 4} fontSize="12" textAnchor="end" fill="#5f6368">{Math.round((yMax * i) / ticks)}</text>
-        </g>
-      ))}
-      {Array.from({ length: ticks + 1 }, (_, i) => (
-        <text key={i} x={x((xMax * i) / ticks)} y={H - b + 18} fontSize="12" textAnchor="middle" fill="#5f6368">{Math.round((xMax * i) / ticks)}</text>
-      ))}
-      {marks.map((m) => <line key={m.y} x1={l} x2={W - r} y1={y(m.y)} y2={y(m.y)} stroke={m.color} strokeDasharray="5 4" strokeWidth="1.5" />)}
-      {series.map((s) => (
-        <polyline key={s.name} fill="none" stroke={s.color} strokeWidth="3" strokeLinejoin="round" points={s.pts.map(([a, c]) => `${x(a)},${y(c)}`).join(' ')} />
-      ))}
-      <text x={l} y={11} fontSize="12" fontWeight="700" fill="#3c4043">{yLabel}</text>
-      <text x={W - r} y={H - 4} fontSize="12" fontWeight="700" textAnchor="end" fill="#3c4043">{xLabel}</text>
-    </svg>
+    <div className="chart">
+      {series.length > 1 && (
+        <div className="legend" aria-hidden="true">
+          {series.map((s, i) => <span key={s.name}><svg width="16" height="16" viewBox="0 0 16 16"><Dot shape={SHAPES[i % 3]} x={8} y={8} color={s.color} /></svg>{s.name}</span>)}
+        </div>
+      )}
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y' }} role="img"
+        aria-label={`${yLabel}와 ${xLabel} 꺾은선그래프. ` + series.filter((s) => s.pts.length).map((s) => `${s.name}: ` + say(s)).join('. ')}
+        onPointerMove={near} onPointerDown={near} onPointerLeave={() => setTip(null)}>
+        {Array.from({ length: ticks + 1 }, (_, i) => (
+          <g key={i}>
+            <line x1={l} x2={W - r} y1={y((yMax * i) / ticks)} y2={y((yMax * i) / ticks)} stroke="#e8eaed" />
+            <text x={l - 8} y={y((yMax * i) / ticks) + 4} fontSize="12" textAnchor="end" fill="#5f6368">{Math.round((yMax * i) / ticks)}</text>
+          </g>
+        ))}
+        {Array.from({ length: ticks + 1 }, (_, i) => (
+          <text key={i} x={x((xMax * i) / ticks)} y={H - b + 18} fontSize="12" textAnchor="middle" fill="#5f6368">{Math.round((xMax * i) / ticks)}</text>
+        ))}
+        {marks.map((m) => <line key={m.y} x1={l} x2={W - r} y1={y(m.y)} y2={y(m.y)} stroke={m.color} strokeDasharray="5 4" strokeWidth="1.5" />)}
+        {series.map((s, i) => {
+          const last = s.pts[s.pts.length - 1]
+          if (!last) return null
+          return (
+            <g key={s.name}>
+              <polyline fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={s.pts.map(([a, c]) => `${x(a)},${y(c)}`).join(' ')} />
+              {(dense(s) ? [last] : s.pts).map(([a, c], k) => <Dot key={k} shape={SHAPES[i % 3]} x={x(a)} y={y(c)} color={s.color} r={4.5} />)}
+              {tagOf(i) && <text x={tagOf(i).x} y={tagOf(i).y} fontSize="12" fontWeight="700" fill="#3c4043" stroke="#fff" strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">{s.name}</text>}
+            </g>
+          )
+        })}
+        {tip && (
+          <g pointerEvents="none">
+            <line x1={x(tip.a)} x2={x(tip.a)} y1={t} y2={H - b} stroke="#9aa0a6" strokeDasharray="3 3" />
+            <circle cx={x(tip.a)} cy={y(tip.c)} r="9" fill="none" stroke={tip.s.color} strokeWidth="2.5" />
+          </g>
+        )}
+        <text x={l} y={11} fontSize="12" fontWeight="700" fill="#3c4043">{yLabel}</text>
+        <text x={W - r} y={H - 4} fontSize="12" fontWeight="700" textAnchor="end" fill="#3c4043">{xLabel}</text>
+      </svg>
+      {(!compact || tip) && <p className="chart-tip" aria-live="polite">{tip ? <><b>{tip.s.name}</b> {u(tip.a, xUnit)}일 때 {u(tip.c, yUnit)}</> : pts.length > series.length ? '그래프에 손을 대면 값이 보여요.' : ''}</p>}
+    </div>
   )
 }

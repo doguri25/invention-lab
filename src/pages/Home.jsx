@@ -1,4 +1,5 @@
 import { useApp } from '../lib/store'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import { WORKS, SESSIONS, SCHEDULE } from '../data/content'
 import { blockName } from '../data/blocks'
 import { sessionProgress, firstOpen } from '../lib/progress'
@@ -53,7 +54,7 @@ export default function Home() {
         </div>
         <div className="stage-card" aria-label={`${W.name} 3D 모형이 움직이는 모습`}>
           <div className="labbox" style={{ height: '100%', minHeight: 420, boxShadow: 'none', background: 'transparent' }}>
-            <Lab mode="demo" autoRotate />
+            <ErrorBoundary lab><Lab mode="demo" autoRotate /></ErrorBoundary>
           </div>
           <a className="btn stage-btn" href="#/lab">발명품 실험실 열기</a>
         </div>

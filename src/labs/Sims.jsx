@@ -6,7 +6,7 @@ import { Stage } from '../three/Stage'
 import { Mascot3D } from '../three/Mascot3D'
 import { C, Cup, Scale, Bottle, Rope, Table, Label } from '../three/parts'
 import { peelForce, magnetForce, rampForce, fmt } from '../lib/physics'
-import { LineChart } from '../components/ui'
+import { LineChart, SERIES } from '../components/ui'
 
 const lerp = (a, b, t) => a + (b - a) * t
 function useTween(target, speed = 4) {
@@ -177,7 +177,7 @@ function PeelScene({ deg, cupG, peeled, cheer }) {
   const dir = [-Math.cos(a), Math.sin(a)]
   const top = 1.27
   const arm = [xp + dir[0] * 0.35, top + dir[1] * 0.35]
-  // 첫 도르래는 벗기는 방향 위에, 둘째 도르래는 컵이 상자에 닿지 않는 곳에
+  // 도르래 하나는 벗기는 방향 위에, 다른 하나는 컵이 상자에 닿지 않는 곳에
   const S1 = [xp + dir[0], top + dir[1] + 0.06]
   const sgn = dir[0] < -0.05 ? -1 : 1
   let s2x = S1[0] + sgn * 0.4
@@ -213,7 +213,7 @@ export function PeelSim() {
     if (cup >= need && peeled === 0) { setPeeled(1); setLog((l) => [...l, [deg + '°', cup]]) }
   }, [cup, need]) // eslint-disable-line
   const reset = (d = deg) => { setDeg(d); setW(0); setPeeled(0) }
-  const curve = useMemo(() => [{ name: '힘', color: '#e8710a', pts: Array.from({ length: 31 }, (_, i) => { const d = 40 + i * 4.67; return [d, Math.min(160, peelForce(d, F90))] }) }], [])
+  const curve = useMemo(() => [{ name: '힘', color: SERIES[1], pts: Array.from({ length: 31 }, (_, i) => { const d = 40 + i * 4.67; return [d, Math.min(160, peelForce(d, F90))] }) }], [])
   return (
     <>
       <Stage camera={[0.5, 2.3, 5.2]} target={[0, 1.05, 0]} label="테이프를 각도별로 벗기기">
@@ -223,7 +223,7 @@ export function PeelSim() {
         <span className={'state ' + (peeled ? '' : 'idle')} role="status">{peeled ? `벗겨졌어요! ${fmt(cup, 0)} g` : `컵 ${fmt(cup, 0)} g · 아직 붙어 있어요`}</span>
         <span style={{ flex: 1 }} />
         <div className="mini-chart" style={{ width: 250 }}>
-          <LineChart series={[...curve, { name: '지금', color: '#1a73e8', pts: [[deg, Math.min(160, need) - 3], [deg, Math.min(160, need) + 3]] }]} xMax={180} yMax={160} xLabel="각도" yLabel="필요한 힘(g)" height={170} w={300} />
+          <LineChart series={[...curve, { name: '지금', color: SERIES[0], pts: [[deg, Math.min(160, need)]] }]} xMax={180} yMax={160} xLabel="각도" yLabel="필요한 힘(g)" xUnit="°" yUnit="g" height={170} w={300} compact />
         </div>
       </div>
       <div className="lab-bottom">
@@ -430,7 +430,7 @@ export function RampSim() {
 const AREA = Math.PI * 3.3 * 3.3
 const HOLE_H = 2
 const outflow = (ml, d) => { const h = ml / AREA - HOLE_H; if (h <= 0) return 0; return 0.62 * Math.PI * Math.pow(d / 20, 2) * Math.sqrt(2 * 981 * h) }
-const BCOL = ['#1a73e8', '#e8710a', '#188038']
+const BCOL = SERIES
 const MARKS = [250, 200, 150, 100]
 // 그림에서의 자리: 병은 받침대 위에 있고, 구멍은 100 mL 눈금보다 아래(바닥에서 2 cm)에 있다
 const SHELF = 0.34
@@ -520,7 +520,7 @@ export function DrainSim() {
             <Bottle position={[x, SHELF, 0]} r={0.33} h={1.6} fill={s.ml[i] / 500} holeY={HOLE_Y} />
             <Marks x={x} numbers={i === 0} />
             <Stream x={x} ml={s.ml[i]} d={s.holes[i]} on={run} />
-            <Label position={[x, SHELF + 1.6 + 0.26, 0]}><b>{'ABC'[i]}</b>{s.holes[i]} mm · {Math.round(s.ml[i])} mL</Label>
+            <Label position={[x, SHELF + 1.6 + 0.26, 0]}><b>{'ABC'[i]}</b>{Math.round(s.ml[i])} mL</Label>
           </group>
         ))}
         {/* 병 받침대와 물을 받는 대야 */}
@@ -537,9 +537,9 @@ export function DrainSim() {
             <button aria-pressed={view === 'graph'} onClick={() => setView('graph')}>그래프</button>
             <button aria-pressed={view === 'table'} onClick={() => setView('table')}>눈금 지난 시각</button>
           </div>
-          {view === 'graph' ? <LineChart series={series} xMax={xMax} yMax={300} xLabel="시간(초)" yLabel="남은 물(mL)" height={180} w={320} /> : (
+          {view === 'graph' ? <LineChart series={series} xMax={xMax} yMax={300} xLabel="시간(초)" yLabel="남은 물(mL)" xUnit="초" yUnit="mL" height={170} w={260} compact tags={false} /> : (
             <table className="small" style={{ borderCollapse: 'collapse', width: '100%' }}>
-              <thead><tr><th style={{ textAlign: 'left' }}>남은 물</th>{['A', 'B', 'C'].map((b, i) => <th key={b} style={{ color: BCOL[i] }}>병 {b}</th>)}</tr></thead>
+              <thead><tr><th style={{ textAlign: 'left' }}>남은 물</th>{['A', 'B', 'C'].map((b, i) => <th key={b}><i className="sw" style={{ background: BCOL[i] }} />병 {b}</th>)}</tr></thead>
               <tbody>{MARKS.map((mk) => <tr key={mk}><td>{mk} mL</td>{[0, 1, 2].map((i) => <td key={i} style={{ textAlign: 'center', fontWeight: 700 }}>{s.cross[i][mk] != null ? Math.round(s.cross[i][mk]) + '초' : '·'}</td>)}</tr>)}</tbody>
             </table>
           )}
@@ -550,8 +550,8 @@ export function DrainSim() {
           <div className="ctrl">
             {[0, 1, 2].map((i) => (
               <label key={i} className="row" style={{ gap: 6 }}>
-                <span style={{ color: BCOL[i] }}>병 {'ABC'[i]}</span>
-                <select className="field" style={{ minHeight: 42, width: 110, padding: '4px 8px' }} value={holes[i]} disabled={run}
+                <span><i className="sw" style={{ background: BCOL[i] }} />병 {'ABC'[i]}</span>
+                <select className="field" style={{ width: 110, padding: '4px 8px' }} value={holes[i]} disabled={run}
                   onChange={(e) => { const h = [...holes]; h[i] = +e.target.value; setHoles(h); reset(h) }}>
                   {[0.5, 0.7, 0.9, 1.2, 1.6, 2.0].map((d) => <option key={d} value={d}>{d} mm</option>)}
                 </select>

@@ -121,12 +121,3 @@ export function Rope({ points, color = '#5f6368', radius = 0.008 }) {
     </mesh>
   )
 }
-
-export function Drop({ position, s = 1 }) {
-  return (
-    <mesh position={position} scale={[0.035 * s, 0.05 * s, 0.035 * s]}>
-      <sphereGeometry args={[1, 10, 8]} />
-      <meshPhysicalMaterial color={C.water} transparent opacity={0.85} roughness={0.05} clearcoat={1} />
-    </mesh>
-  )
-}

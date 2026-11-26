@@ -1,0 +1,36 @@
+// 3D가 안 되는 기기(WebGL 꺼짐)나 3D가 도중에 고장 났을 때도 앱이 하얗게 되지 않고 나머지 학습을 할 수 있는지
+const { chromium } = require('playwright')
+const BASE = 'http://localhost:4173/'
+const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1 }
+
+;(async () => {
+  const browser = await chromium.launch({ args: ['--disable-gpu', '--disable-webgl', '--disable-webgl2', '--disable-3d-apis'] })
+  const page = await (await browser.newContext({ viewport: { width: 1180, height: 820 } })).newPage()
+  await page.route('**/rest/v1/rpc/**', (r) => { const fn = r.request().url().split('/').pop(); const body = JSON.parse(r.request().postData() || '{}'); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fn === 'inv_load' ? { student: { id: 'x', name: body.p_name, work: 'rain' }, records: {}, feedback: {} } : { id: 'x', name: body.p_name, work: 'rain', at: 1 }) }) })
+  await page.goto(BASE)
+  ok(await page.evaluate(() => !document.createElement('canvas').getContext('webgl')), '이 브라우저는 WebGL이 꺼져 있다(검사 조건)')
+  await page.click('[role=radio] >> nth=0'); await page.fill('input[maxlength="20"]', '김하늘'); await page.fill('input[type=password]', '1234'); await page.click('button[type=submit]')
+  await page.waitForSelector('text=탐구 지도', { timeout: 8000 }).catch(() => {})
+  ok(await page.locator('text=탐구 지도').count() > 0, '첫 화면: 탐구 지도가 보인다')
+  ok(await page.locator('.fallback3d').count() > 0, '첫 화면: 3D 자리에 안내가 나온다')
+  await page.goto(BASE + '#/s/2'); await page.waitForTimeout(1500)
+  ok(await page.locator('#b-record').count() > 0, '2차시: 기록표가 그대로 나온다')
+  ok(await page.locator('.fallback3d').count() > 0, '2차시: 3D 자리에 안내가 나온다')
+  await page.locator('#b-record input').first().fill('100')
+  ok(await page.locator('#b-record input').first().inputValue() === '100', '2차시: 기록표에 값을 적을 수 있다')
+  await page.goto(BASE + '#/lab'); await page.waitForTimeout(1200)
+  ok(await page.locator('.dock').count() > 0 && await page.locator('.fallback3d').count() > 0, '실험실: 안내가 나오고 메뉴는 그대로다')
+
+  // 3D가 켜지는 척하다가 도중에 고장 나는 경우(그리기 도구가 망가진 기기)
+  const page2 = await (await browser.newContext({ viewport: { width: 1180, height: 820 } })).newPage()
+  await page2.addInitScript(() => { const real = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...a) { return /webgl/.test(t) ? {} : real.call(this, t, ...a) } })
+  await page2.route('**/rest/v1/rpc/**', (r) => { const fn = r.request().url().split('/').pop(); const body = JSON.parse(r.request().postData() || '{}'); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fn === 'inv_load' ? { student: { id: 'x', name: body.p_name, work: 'rain' }, records: {}, feedback: {} } : { id: 'x', name: body.p_name, work: 'rain', at: 1 }) }) })
+  await page2.goto(BASE)
+  await page2.click('[role=radio] >> nth=0'); await page2.fill('input[maxlength="20"]', '김하늘'); await page2.fill('input[type=password]', '1234'); await page2.click('button[type=submit]')
+  await page2.waitForTimeout(2500)
+  ok(await page2.locator('text=탐구 지도').count() > 0, '3D 고장: 첫 화면의 나머지는 그대로 보인다')
+  ok(await page2.locator('.oops.in-lab').count() > 0, '3D 고장: 3D 자리에만 안내와 「다시 열어 보기」가 나온다')
+  await page2.goto(BASE + '#/s/2'); await page2.waitForTimeout(1500)
+  ok(await page2.locator('#b-record input').count() > 0 && await page2.locator('.oops.in-lab').count() > 0, '3D 고장: 2차시 기록표는 그대로 쓸 수 있다')
+  await browser.close()
+})()

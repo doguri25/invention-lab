@@ -130,6 +130,8 @@ export function BarChart({ bars, refs = [], unit = '', height = 220 }) {
   const max = Math.max(10, ...bars.map((x) => x.v || 0), ...refs.map((x) => x.v || 0)) * 1.15
   const y = (v) => H - b - (v / max) * (H - t - b)
   const bw = (W - l - r) / bars.length
+  // 막대는 바닥에 붙이고 윗부분만 둥글린다
+  const top = (bx, by, w, h) => { const q = Math.min(4, h, w / 2); return `M${bx} ${by + h}V${by + q}a${q} ${q} 0 0 1 ${q} ${-q}h${w - 2 * q}a${q} ${q} 0 0 1 ${q} ${q}V${by + h}Z` }
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img"
       aria-label={'막대그래프. ' + bars.map((x) => `${x.name} ${Number.isFinite(x.v) ? x.v.toFixed(1) + unit : '아직 없음'}`).join(', ')}>
@@ -143,7 +145,7 @@ export function BarChart({ bars, refs = [], unit = '', height = 220 }) {
         const v = Number.isFinite(x.v) ? x.v : 0
         return (
           <g key={x.name}>
-            <rect x={l + bw * i + bw * 0.22} y={y(v)} width={bw * 0.56} height={H - b - y(v)} rx="8" fill={x.color || '#1a73e8'} />
+            {v > 0 && <path d={top(l + bw * i + bw * 0.22, y(v), bw * 0.56, H - b - y(v))} fill={x.color || '#1967d2'} />}
             {Number.isFinite(x.v) && <text x={l + bw * (i + 0.5)} y={y(v) - 6} fontSize="13" fontWeight="700" textAnchor="middle" fill="#1f1f1f">{x.v.toFixed(1)}</text>}
             <text x={l + bw * (i + 0.5)} y={H - b + 18} fontSize="13" fontWeight="600" textAnchor="middle" fill="#3c4043">{x.name}</text>
           </g>
@@ -152,7 +154,7 @@ export function BarChart({ bars, refs = [], unit = '', height = 220 }) {
       {refs.filter((x) => Number.isFinite(x.v)).map((x) => (
         <g key={x.name}>
           <line x1={l} x2={W - r} y1={y(x.v)} y2={y(x.v)} stroke={x.color} strokeDasharray="6 5" strokeWidth="2" />
-          <text x={l + 6} y={y(x.v) - 7} fontSize="12" fontWeight="700" fill={x.color} stroke="#fff" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">{x.name} {x.v.toFixed(1)} {unit}</text>
+          <text x={l + 6} y={y(x.v) - 7} fontSize="12" fontWeight="700" fill="#3c4043" stroke="#fff" strokeWidth="4" paintOrder="stroke" strokeLinejoin="round">{x.name} {x.v.toFixed(1)} {unit}</text>
         </g>
       ))}
       <text x={l} y={12} fontSize="12" fontWeight="700" fill="#3c4043">{unit}</text>
@@ -208,7 +210,7 @@ const MAX_PTS = 9000
 const count = (s) => s.reduce((a, x) => a + x.p.length / 2, 0)
 
 export function Sketch({ value, onChange, panels = 1, readOnly, label = '그림판' }) {
-  const strokes = (value && value.s) || []
+  const strokes = (value && Array.isArray(value.s) ? value.s : []).filter((s) => s && Array.isArray(s.p))
   const H = panels > 1 ? 400 : 560
   const [color, setColor] = useState(PENS[0][0])
   const [thick, setThick] = useState(false)

@@ -3,11 +3,12 @@ import { useApp } from '../lib/store'
 import { SESSIONS } from '../data/content'
 import { sequence, blockName, blockShort } from '../data/blocks'
 import { blockState, sessionProgress, thinkItems, firstOpen } from '../lib/progress'
-import { Section, Talk, Tools, Picks, RecordTable, Stairs, Think, Quiz, LineChart, Learn, Callout, avgOf } from '../components/ui'
+import { Section, Talk, Tools, Picks, RecordTable, Stairs, Think, Quiz, LineChart, SERIES, Learn, Callout, avgOf } from '../components/ui'
 import { StepList, Fig, Create, BarChart, Wave, Cookie, Stamp, useNarrow } from '../components/extra'
 import { LabFrame } from '../labs/LabFrame'
 import { fmt } from '../lib/physics'
 import { rich } from '../lib/rich'
+import { Icon } from '../components/Icon'
 
 const idOf = (t) => 'b-' + t.replace(':', '-')
 const calm = () => document.documentElement.dataset.motion === '0' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -88,7 +89,7 @@ function Recap({ list, records, data, set }) {
 }
 
 function DrainGraph({ data }) {
-  const ys = [250, 200, 150, 100], rows = ['t250', 't200', 't150', 't100'], col = ['#1a73e8', '#e8710a', '#188038']
+  const ys = [250, 200, 150, 100], rows = ['t250', 't200', 't150', 't100'], col = SERIES
   const series = [0, 1, 2].map((j) => ({ name: '병 ' + 'ABC'[j], color: col[j], pts: [[0, 300], ...rows.map((r, i) => [parseFloat(data[`${r}_${j}`]), ys[i]]).filter(([x]) => Number.isFinite(x))] }))
   const n = series.reduce((a, x) => a + x.pts.length - 1, 0)
   const xMax = Math.max(60, ...series.flatMap((x) => x.pts.map((p) => p[0])))
@@ -96,21 +97,20 @@ function DrainGraph({ data }) {
     <div className="graph">
       <p className="quiz-q">기록표로 그린 꺾은선그래프</p>
       {n === 0 && <p className="small muted">기록표에 시간을 적으면 점이 찍히고 선으로 이어져요.</p>}
-      <LineChart series={series} xMax={Math.ceil(xMax / 30) * 30} yMax={300} xLabel="시간(초)" yLabel="남은 물(mL)" />
-      <div className="row small">{series.map((x) => <span key={x.name} style={{ color: x.color, fontWeight: 700 }}>● {x.name}</span>)}</div>
+      <LineChart series={series} xMax={Math.ceil(xMax / 30) * 30} yMax={300} xLabel="시간(초)" yLabel="남은 물(mL)" xUnit="초" yUnit="mL" />
     </div>
   )
 }
 
 function BandGraph({ data, records }) {
   const a180 = avgOf(records.s3, 'a180')
-  const bars = ['b1', 'b2', 'b3'].map((id, i) => ({ name: `고무줄 ${i + 1}개`, v: avgOf(data, id), color: '#e8710a' }))
+  const bars = ['b1', 'b2', 'b3'].map((id, i) => ({ name: `고무줄 ${i + 1}개`, v: avgOf(data, id), color: SERIES[1] }))
   return (
     <div className="graph">
       <p className="quiz-q">기록표로 그린 막대그래프</p>
       {!bars.some((b) => Number.isFinite(b.v)) && <p className="small muted">기록표에 무게를 적으면 막대가 올라가요.</p>}
-      <BarChart bars={bars} unit="g" refs={[{ name: '진짜 테이프를 벗기는 힘', v: Number.isFinite(a180) ? a180 * 4.8 : NaN, color: '#188038' }]} />
-      <p className="small muted">초록 점선은 3차시에 잰 180° 평균에 4.8을 곱한 값이에요. 막대가 이 선보다 조금 높은 고무줄 개수를 찾아요.</p>
+      <BarChart bars={bars} unit="g" refs={[{ name: '진짜 테이프를 벗기는 힘', v: Number.isFinite(a180) ? a180 * 4.8 : NaN, color: SERIES[2] }]} />
+      <p className="small muted">점선은 3차시에 잰 180° 평균에 4.8을 곱한 값이에요. 막대가 이 선보다 조금 높은 고무줄 개수를 찾아요.</p>
     </div>
   )
 }
@@ -287,7 +287,7 @@ export default function Session({ n, sec }) {
           {s.more.map((x, i) => (
             <li key={x}>
               <button type="button" onClick={() => set('more' + i, !data['more' + i])} aria-pressed={!!data['more' + i]}>
-                <span className="more-box" aria-hidden="true">{data['more' + i] ? '✓' : ''}</span><span>{x}</span>
+                <span className="more-box" aria-hidden="true">{data['more' + i] && <Icon name="check" />}</span><span>{x}</span>
               </button>
             </li>
           ))}
@@ -354,7 +354,7 @@ export default function Session({ n, sec }) {
         <div className="stack" style={{ marginTop: 14, gap: 8 }}>
           {s.self.map((x, i) => (
             <button key={x} type="button" className="self-btn" onClick={() => set('self' + i, !data['self' + i])} aria-pressed={!!data['self' + i]}>
-              <span className="star" aria-hidden="true">{data['self' + i] ? '★' : '☆'}</span><span>{x}</span>
+              <span className="star" aria-hidden="true"><Icon name="star" fill={!!data['self' + i]} /></span><span>{x}</span>
             </button>
           ))}
         </div>

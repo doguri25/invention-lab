@@ -37,3 +37,4 @@ for (const w of ['rain', 'tape']) for (const s of SESSIONS[w]) {
   // 그림 파일
 }
 console.log(bad ? `문제 ${bad}개` : '지도안 흐름과 학생 화면 순서가 모두 맞음(12개 차시)')
+if (bad) process.exitCode = 1
